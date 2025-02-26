@@ -10,8 +10,8 @@ using namespace inductor;
 #include "Inductor/InductorOpsDialect.cpp.inc"
 
 void InductorDialect::initialize() {
-  addOperations<
-#define GET_OP_LIST
-#include "Inductor/InductorOps.cpp.inc"
+  addOperations< 
+  #define GET_OP_LIST
+  #include "Inductor/InductorOps.cpp.inc"
       >();
 }

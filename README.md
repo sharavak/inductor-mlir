@@ -1,5 +1,3 @@
-
-
 ## Prerequisites
 
 * [LLVM](https://llvm.org/)
@@ -7,7 +5,7 @@
 * [CMake](https://cmake.org/)
 * [Ninja](https://ninja-build.org/)
 
-We need to build our own MLIR in the local machine in advance. Please follow the build instruction for MLIR [here](https://mlir.llvm.org/getting_started/). 
+Make sure you should build your own MLIR in the local machine in advance. Please follow the build instruction for MLIR [here](https://mlir.llvm.org/getting_started/). 
 
 ## Building
 
@@ -18,7 +16,7 @@ mkdir build && cd build
 cmake -G Ninja .. -DLLVM_DIR=/path/to/llvm-project/build/lib/cmake/llvm \
   -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir
 
-cmake --build . --target hello-opt
+cmake --build . --target inductor-opt
 ```
 
 To run the test, `check-inductor` target will be usable.

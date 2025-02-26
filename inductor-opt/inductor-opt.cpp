@@ -1,11 +1,12 @@
-#include "mlir/IR/MLIRContext.h"
-#include "mlir/InitAllDialects.h"
-#include "mlir/Parser/Parser.h"
-#include "mlir/Support/FileUtilities.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/SourceMgr.h"
+  #include "mlir/IR/MLIRContext.h"
+  #include "mlir/InitAllDialects.h"
+  #include "mlir/Parser/Parser.h"
+  #include "mlir/Support/FileUtilities.h"
+  #include "llvm/Support/CommandLine.h"
+  #include "llvm/Support/SourceMgr.h"
+  #include "mlir/InitAllDialects.h"
 
-#include "Inductor/InductorDialect.h"
+  #include "Inductor/InductorDialect.h"
 
 namespace cl = llvm::cl; //Command-Line Argument Handling
 static cl::opt<std::string> inputFilename(cl::Positional,
@@ -47,11 +48,16 @@ int loadAndProcessMLIR(mlir::MLIRContext &context,mlir::OwningOpRef<mlir::Module
 int main(int argc, char **argv) {
     cl::ParseCommandLineOptions(argc, argv, "Inductor compiler\n");
     mlir::MLIRContext context;
+    mlir::DialectRegistry registry;
+    registry.insert<inductor::InductorDialect>();
+    registry.insert<mlir::func::FuncDialect>();
+    mlir::registerAllDialects(registry);
     context.getOrLoadDialect<inductor::InductorDialect>();
     context.getOrLoadDialect<mlir::func::FuncDialect>();
     mlir::OwningOpRef<mlir::ModuleOp> module;
     if (int error = loadAndProcessMLIR(context, module)) {
       return error;
     }
+    module->print(llvm::outs());
     return 0;
 }

@@ -11,7 +11,7 @@ set(INDUCTOR_TEST_DEPENDS
         inductor-opt
         )
 
-add_lit_testsuite(check-inductor "Running the dl regression tests"
+add_lit_testsuite(check-inductor "Running the inductor regression tests"
         ${CMAKE_CURRENT_BINARY_DIR}
         DEPENDS ${INDUCTOR_TEST_DEPENDS}
         )
