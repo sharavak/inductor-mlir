@@ -12,6 +12,11 @@ set(LIBS
         MLIRSideEffectInterfaces
         MLIRSupport
         MLIROptLib
+        MLIRPass
+        MLIRSupport
+        MLIRTargetLLVMIRExport
+        MLIRTransforms
+        MLIRTosaDialect
         )
 add_llvm_executable(inductor-opt inductor-opt.cpp)
 
