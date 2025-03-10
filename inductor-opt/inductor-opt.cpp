@@ -6,12 +6,10 @@
 #include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"
-
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/ToolOutputFile.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 
 #include "Inductor/InductorDialect.h"

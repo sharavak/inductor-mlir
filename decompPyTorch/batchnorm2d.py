@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 
-
 class CustomBatchNorm2d(nn.Module):
   def __init__(self, num_features, eps=1e-5, affine=True):
         super(CustomBatchNorm2d, self).__init__()
@@ -17,13 +16,14 @@ class CustomBatchNorm2d(nn.Module):
 
 
   def forward(self, x):
+    # General Formula -> (x-mean)/sqrt(variance+eps)
+    # Variance Formula -> (x-mean)*(x-mean)/N
+    
     B,C,W,H=x.shape
+
     batch_sum=x.sum(dim=0,keepdim=True)
-    print(batch_sum.shape)
     height_sum=batch_sum.sum(dim=2,keepdim=True)
-    print(height_sum.shape)
     width_sum=height_sum.sum(dim=3,keepdim=True)
-    print(width_sum.shape)
 
     m=torch.tensor([B*W*H]) # creating the tensor since recriprocal op supports only tensor
 
@@ -34,23 +34,20 @@ class CustomBatchNorm2d(nn.Module):
     var_sub=torch.sub(x,width_avg) #(x-mean)
 
     variance=torch.mul(var_sub,var_sub) # (x-mean)*(x-mean)
-    print(variance.shape,'variance')
 
-    batch_var=variance.sum(dim=(0,2,3),keepdim=True) # it is same as torch.sum
-    print(noOfEle.shape,'noofelements shape')
+    var_batch=variance.sum(dim=0,keepdim=True)
+    var_height=var_batch.sum(dim=2,keepdim=True)
+    var_width=var_height.sum(dim=3,keepdim=True)
 
-    batch_var=torch.mul(batch_var,noOfEle)
+    batch_var=torch.mul(var_width,noOfEle) # 1/N*summation((x-mean)*(x-mean)) -> variance
 
-    print(batch_var.shape,"batch shape");
+    denominator=torch.add(batch_var,self.eps)  # variance+eps
 
-    add=torch.add(batch_var,self.eps)
+    sq=torch.sqrt(denominator) #sqrt(denominator)
 
-    print(add.shape,"shape")
-    sq=torch.sqrt(add)
+    rec_sq=torch.reciprocal(sq)
 
-    sq=torch.reciprocal(sq)
-
-    x_norm=torch.mul(var_sub,sq)
+    x_norm=torch.mul(var_sub,rec_sq) # (x-mean)*(1/sq)
 
     return x_norm
 
@@ -58,6 +55,8 @@ class CustomBatchNorm2d(nn.Module):
 for i in range(5):
     b,ch,w,h=torch.randint(100,size=(1,)),torch.randint(100,size=(1,)),torch.randint(100,size=(1,)),torch.randint(100,size=(1,))
     ip=torch.randn(b,ch,w,h)
+
+    # My decompostion works only if affine is False
     cus=CustomBatchNorm2d(ch,affine=False)
     res=cus(ip)
     batch_norm = nn.BatchNorm2d(ch, affine=False)
