@@ -25,13 +25,13 @@ class CustomBatchNorm2d(nn.Module):
     height_sum=batch_sum.sum(dim=2,keepdim=True)
     width_sum=height_sum.sum(dim=3,keepdim=True)
 
-    m=torch.tensor([B*W*H]) # creating the tensor since recriprocal op supports only tensor
+    noOfEle=torch.tensor([B*W*H]) # creating the tensor since recriprocal op supports only tensor
 
-    noOfEle=torch.reciprocal(m)
+    noOfEle=torch.reciprocal(noOfEle)
 
-    width_avg=torch.mul(width_sum,noOfEle)
+    width_mean=torch.mul(width_sum,noOfEle)
 
-    var_sub=torch.sub(x,width_avg) #(x-mean)
+    var_sub=torch.sub(x,width_mean) #(x-mean)
 
     variance=torch.mul(var_sub,var_sub) # (x-mean)*(x-mean)
 
@@ -53,7 +53,10 @@ class CustomBatchNorm2d(nn.Module):
 
 
 for i in range(5):
-    b,ch,w,h=torch.randint(100,size=(1,)),torch.randint(100,size=(1,)),torch.randint(100,size=(1,)),torch.randint(100,size=(1,))
+    b=torch.randint(100,size=(1,))
+    ch=torch.randint(100,size=(1,))
+    w=torch.randint(100,size=(1,))
+    h=torch.randint(100,size=(1,))
     ip=torch.randn(b,ch,w,h)
 
     # My decompostion works only if affine is False

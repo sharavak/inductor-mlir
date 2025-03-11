@@ -28,18 +28,22 @@ class AddOpLowering : public mlir::OpRewritePattern<inductor::AddOp> {
   matchAndRewrite(inductor::AddOp op, mlir::PatternRewriter &rewriter) const override {
     mlir::Type resultType = op.getResult().getType();
     mlir::tosa::AddOp addop=rewriter.create<mlir::tosa::AddOp>(op.getLoc(),resultType, op.getOperands());
-    rewriter.replaceOp(op.getOperation(), addop.getOperation());
+    rewriter.replaceOp(op, addop);
     return mlir::success();
 }
 };
 
-void change( mlir::SmallVector<int64_t> shape,auto inputShape){
-  
+// This function is used to change the output shape for each result(for mean calculation and variance calculation)
+void changeShape(mlir::SmallVector<int64_t> &shape,int64_t b,int64_t c,int64_t w,int64_t h){
+  shape[0]=b;
+  shape[1]=c;
+  shape[2]=w;
+  shape[3]=h;
 }
-
 class BatchNorm2dOpLowering : public mlir::OpRewritePattern<inductor::BatchNorm2dOp> {
-  using OpRewritePattern<inductor::BatchNorm2dOp>::OpRewritePattern;
 
+  using OpRewritePattern<inductor::BatchNorm2dOp>::OpRewritePattern;
+  
   mlir::LogicalResult matchAndRewrite(inductor::BatchNorm2dOp op,
                                       mlir::PatternRewriter &rewriter) const override {
 
@@ -52,27 +56,22 @@ class BatchNorm2dOpLowering : public mlir::OpRewritePattern<inductor::BatchNorm2
     auto inputType = input.getType(); 
     auto inputTensorType = inputType.cast<mlir::RankedTensorType>();
     auto inputShape = inputTensorType.getShape();
+
     mlir::SmallVector<int64_t> shape(4,0);
-
     
-    shape[0]=1;shape[1]=inputShape[1];shape[2]=inputShape[2];shape[3]=inputShape[3];// (B,C,W,H)
-
-    // ---- For getting avg sum for the axis 0 2 3                                    
+    // ---- For getting avg sum for the axis 0 2 3 
+    changeShape(shape,1,inputShape[1],inputShape[2],inputShape[3]);// (1,C,W,H)                                   
     auto ip = mlir::RankedTensorType::get(shape, inputType.getElementType());// (1,C,W,H)
-    
     mlir::Value btsum = rewriter.create<mlir::tosa::ReduceSumOp>(loc, ip, input, rewriter.getI32IntegerAttr({0}));
-
-    shape[0]=1;shape[1]=ip.getShape()[1];shape[2]=1;shape[3]=ip.getShape()[3];
-    ip = mlir::RankedTensorType::get(shape, inputType.getElementType());
     
+    changeShape(shape,1,ip.getShape()[1],1,ip.getShape()[3]);
+    ip = mlir::RankedTensorType::get(shape, inputType.getElementType());
     mlir::Value wisum= rewriter.create<mlir::tosa::ReduceSumOp>(loc, ip, btsum, rewriter.getI32IntegerAttr({2}));// (1,C,1,H)
     
-    shape[0]=1;shape[1]=ip.getShape()[1];shape[2]=1;shape[3]=1;
+    changeShape(shape,1,ip.getShape()[1],1,1);
     ip = mlir::RankedTensorType::get(shape, inputType.getElementType()); // (1,C,1,1)
-    
     mlir::Value hisum= rewriter.create<mlir::tosa::ReduceSumOp>(loc, ip, wisum, rewriter.getI32IntegerAttr({3}));// batch sum (1,C,1,1)
     
-
     float val=1.0/(inputShape[0] * inputShape[2] * inputShape[3]);
     auto const_type = mlir::RankedTensorType::get({1,inputShape[1],1,1}, rewriter.getF32Type());
     auto const_attr = mlir::DenseElementsAttr::get(const_type, val);
@@ -83,43 +82,41 @@ class BatchNorm2dOpLowering : public mlir::OpRewritePattern<inductor::BatchNorm2
     auto shiftAttr = mlir::DenseElementsAttr::get(shiftType, rewriter.getIntegerAttr(rewriter.getIntegerType(8), 1));
     auto constShift =rewriter.create<mlir::tosa::ConstOp>(op->getLoc(), shiftType, shiftAttr);
     
-    auto width_avg = rewriter.create<mlir::tosa::MulOp>(loc,ip,hisum,divisor,constShift.getResult());// batch avg (1,C,1,1)
+    auto width_mean = rewriter.create<mlir::tosa::MulOp>(loc,ip,hisum,divisor,constShift.getResult());// batch avg (1,C,1,1)
 
     // Variance sum for the axis 0 2 3
     // (X-mean)
-    auto var_sub=rewriter.create<mlir::tosa::SubOp>(loc,inputType,input,width_avg);
-
-    shape[0]=1;shape[1]=inputShape[1];shape[2]=inputShape[2];shape[3]=inputShape[3];     
+    auto var_sub=rewriter.create<mlir::tosa::SubOp>(loc,inputType,input,width_mean);
+    changeShape(shape,1,inputShape[1],inputShape[2],inputShape[3]);                                   
+      
     ip = mlir::RankedTensorType::get(shape, inputType.getElementType());
-    auto btvarsum = rewriter.create<mlir::tosa::ReduceSumOp>(loc, ip, var_sub, rewriter.getI32IntegerAttr({0}));
+    auto btVarSum = rewriter.create<mlir::tosa::ReduceSumOp>(loc, ip, var_sub, rewriter.getI32IntegerAttr({0}));
     
-    shape[0]=1;shape[1]=ip.getShape()[1];shape[2]=1;shape[3]=ip.getShape()[3];
+    changeShape(shape,1,ip.getShape()[1],1,ip.getShape()[3]);   
     ip = mlir::RankedTensorType::get(shape, inputType.getElementType());
-    auto wivarsum= rewriter.create<mlir::tosa::ReduceSumOp>(loc, ip, btvarsum, rewriter.getI32IntegerAttr({2}));
+    auto wiVarSum= rewriter.create<mlir::tosa::ReduceSumOp>(loc, ip, btVarSum, rewriter.getI32IntegerAttr({2}));
     
-    shape[0]=1;shape[1]=ip.getShape()[1];shape[2]=1;shape[3]=1;
+    changeShape(shape,1,ip.getShape()[1],1,1);
     ip = mlir::RankedTensorType::get(shape, inputType.getElementType());
+    mlir::Value bt_sum= rewriter.create<mlir::tosa::ReduceSumOp>(loc, ip, wiVarSum, rewriter.getI32IntegerAttr({3}));// variance sum
     
-    mlir::Value b_sum= rewriter.create<mlir::tosa::ReduceSumOp>(loc, ip, wivarsum, rewriter.getI32IntegerAttr({3}));// variance sum
-    
-    auto batch_var = rewriter.create<mlir::tosa::MulOp>(loc,inputType,b_sum,divisor,constShift.getResult());    // variance                                    
+    auto batch_var = rewriter.create<mlir::tosa::MulOp>(loc,inputType,bt_sum,divisor,constShift.getResult());    // variance                                    
 
     float eps=1e-5;
-    auto eps_type = mlir::RankedTensorType::get({1,1,1,1}, rewriter.getF32Type());
-    auto epsAttr = mlir::DenseElementsAttr::get(eps_type, rewriter.getFloatAttr(rewriter.getF32Type(), eps));
-    auto epsinter =rewriter.create<mlir::tosa::ConstOp>(op->getLoc(), eps_type, epsAttr);
+    auto epsType = mlir::RankedTensorType::get({1,1,1,1}, rewriter.getF32Type());
+    auto epsAttr = mlir::DenseElementsAttr::get(epsType, rewriter.getFloatAttr(rewriter.getF32Type(), eps));
+    auto epsinter =rewriter.create<mlir::tosa::ConstOp>(op->getLoc(), epsType, epsAttr);
 
-    auto batch_v=rewriter.create<mlir::tosa::AddOp>(loc,inputType,batch_var,epsinter); // (variance+eps)
+    auto varAdd=rewriter.create<mlir::tosa::AddOp>(loc,inputType,batch_var,epsinter); // (variance+eps)
 
-    auto rec_sqrt=rewriter.create<mlir::tosa::RsqrtOp>(loc,inputType,batch_v); // 1/(sqrt(variance+eps))
+    auto rec_sqrt=rewriter.create<mlir::tosa::RsqrtOp>(loc,inputType,varAdd); // 1/(sqrt(variance+eps))
 
-    mlir::tosa::MulOp xnorm=rewriter.create<mlir::tosa::MulOp>(loc,inputType,b_sum,rec_sqrt,constShift.getResult()); 
+    mlir::tosa::MulOp xnorm=rewriter.create<mlir::tosa::MulOp>(loc,inputType,bt_sum,rec_sqrt,constShift.getResult()); 
     rewriter.replaceOp(op, xnorm);
                   
     return mlir::success();
   }
 };
-
 
 namespace 
 {
@@ -134,7 +131,6 @@ namespace
       void getDependentDialects(mlir::DialectRegistry &registry) const override {
         registry.insert<mlir::tosa::TosaDialect>();
       }
-    
       void runOnOperation() final;  
     };
 
@@ -145,8 +141,6 @@ void InductorToTosaLowerPass::runOnOperation() {
   mlir::ConversionTarget target(getContext());
   target.addIllegalDialect<inductor::InductorDialect>();
   target.addLegalDialect<mlir::tosa::TosaDialect>(); // destination dialect
-  target.addIllegalOp<inductor::AddOp>();
-  target.addIllegalOp<inductor::BatchNorm2dOp>();
   mlir::RewritePatternSet patterns(&getContext());
 
   patterns.add<AddOpLowering>(&getContext());
