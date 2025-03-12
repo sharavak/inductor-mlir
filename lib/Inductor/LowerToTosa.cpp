@@ -56,6 +56,7 @@ class BatchNorm2dOpLowering : public mlir::OpRewritePattern<inductor::BatchNorm2
     auto inputType = input.getType(); 
     auto inputTensorType = inputType.cast<mlir::RankedTensorType>();
     auto inputShape = inputTensorType.getShape();
+    auto affine=op.getAffine();
 
     mlir::SmallVector<int64_t> shape(4,0);
     
@@ -111,8 +112,24 @@ class BatchNorm2dOpLowering : public mlir::OpRewritePattern<inductor::BatchNorm2
 
     auto rec_sqrt=rewriter.create<mlir::tosa::RsqrtOp>(loc,inputType,varAdd); // 1/(sqrt(variance+eps))
 
-    mlir::tosa::MulOp xnorm=rewriter.create<mlir::tosa::MulOp>(loc,inputType,bt_sum,rec_sqrt,constShift.getResult()); 
-    rewriter.replaceOp(op, xnorm);
+    auto  xnorm=rewriter.create<mlir::tosa::MulOp>(loc,inputType,bt_sum,rec_sqrt,constShift.getResult()); 
+    if(affine){
+      // #x_norm = x_norm*gamma + beta
+
+      auto gammaType=mlir::RankedTensorType::get({1,inputShape[1],1,1}, rewriter.getF32Type() );
+      auto gammaAttr = mlir::DenseElementsAttr::get(gammaType, rewriter.getFloatAttr(rewriter.getF32Type(), 1.0));
+      auto gamma = rewriter.create<mlir::tosa::ConstOp>(loc,gammaType,gammaAttr); // (1,C,1,1)
+      xnorm = rewriter.create<mlir::tosa::MulOp>(loc,inputType,xnorm,gamma,constShift.getResult()); 
+
+      auto betaType=mlir::RankedTensorType::get({1,inputShape[1],1,1}, rewriter.getF32Type());
+      auto betaAttr = mlir::DenseElementsAttr::get(betaType, rewriter.getFloatAttr(rewriter.getF32Type(), 0.0));
+      auto beta = rewriter.create<mlir::tosa::ConstOp>(loc,betaType,betaAttr); // (1,C,1,1)
+
+      auto new_xnorm=rewriter.create<mlir::tosa::AddOp>(loc,inputType,xnorm,beta);
+      rewriter.replaceOp(op, new_xnorm);
+    }else{
+      rewriter.replaceOp(op, xnorm);
+    }
                   
     return mlir::success();
   }

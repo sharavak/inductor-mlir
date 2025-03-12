@@ -49,6 +49,20 @@ class CustomBatchNorm2d(nn.Module):
 
     x_norm=torch.mul(var_sub,rec_sq) # (x-mean)*(1/sq)
 
+    if self.affine:
+      self.gamma = self.gamma.reshape(1, C, 1, 1)
+      self.beta = self.beta.reshape(1, C, 1, 1)
+
+      # Uses of  gamma and beta
+      # Since they are learnable parameters which means,they are updated along with the network weights and biases during training.
+      # Beta acts as an offset factor, while gamma acts as a scaling factor.
+      # gamma and beta give the network flexibility to undo the normalization if it helps optimize the loss function.
+      # So gamma and beta allow the network to scale and shift the normalized values to restore the original distribution if needed to minimize the loss.
+      # For ref:https://community.deeplearning.ai/t/batch-normalization-questions/444508/2
+
+      gammaResult=torch.mul(x_norm,self.gamma)
+      x_norm=torch.add(gammaResult,self.beta)
+
     return x_norm
 
 
@@ -59,7 +73,7 @@ for i in range(5):
     h=torch.randint(100,size=(1,))
     ip=torch.randn(b,ch,w,h)
 
-    # My decompostion works only if affine is False
+    # My decompostion doesn't include the training part.
     cus=CustomBatchNorm2d(ch,affine=False)
     res=cus(ip)
     batch_norm = nn.BatchNorm2d(ch, affine=False)
