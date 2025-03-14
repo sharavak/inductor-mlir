@@ -22,7 +22,7 @@ def Inductor_AddOp : Inductor_Op<"add",[SameOperandsAndResultShape]> {
 
 }
 
-def Inductor_BatchNorm2D :Inductor_Op<"batchnorm2d",[SameOperandsAndResultShape]>{
+def Inductor_BatchNorm2dOp :Inductor_Op<"batchnorm2d",[SameOperandsAndResultShape]>{
   let summary="Batch Normalization2d";
   let description = [{
     Performs batch normalization over a 4D input tensor (N, C, H, W).
@@ -31,15 +31,27 @@ def Inductor_BatchNorm2D :Inductor_Op<"batchnorm2d",[SameOperandsAndResultShape]
 
   let arguments=(ins AnyTensor:$input, // accepts any data type of Tensor 
                      DefaultValuedOptionalAttr<BoolAttr,"true">:$affine, // default to true
-                     DefaultValuedOptionalAttr<F32Attr,"0.1" >:$momentum, // https://discourse.llvm.org/t/i-have-some-problems-designing-mlir-op/68889/3
+                     DefaultValuedOptionalAttr<F32Attr,"0.1" >:$momentum, 
                      DefaultValuedOptionalAttr<BoolAttr,"true">:$track_running_stats, // default to true
-                     DefaultValuedOptionalAttr<F32Attr,"1e-05">:$eps
+                     OptionalAttr<F32Attr>:$eps
                 );
 
   let results=(outs AnyTensor:$output); // shape should be as input shape
 
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 
+}
+def Inductor_ProdOp: Inductor_Op<"prod">{
+  let summary="prod";
+  let description = [{
+    Returns the product of each row of the input tensor in the given dimension dim.
+  }];
+  let arguments=(ins AnyTensor:$input,
+                      OptionalAttr<AnyAttrOf<[ AnyI64Attr,DenseI64ArrayAttr]>>:$dim,
+                      DefaultValuedOptionalAttr<BoolAttr,"false">:$keepdim
+    );
+  let results=(outs AnyTensor:$output);
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
 #endif // INDUCTOR_OPS
