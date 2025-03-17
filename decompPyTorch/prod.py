@@ -16,7 +16,7 @@ def customProd(x,dim=0,keepdim=False):
   # dim can be int or list of tuples
   
   newShape=[]
-  if type(dim)!=int:
+  if isinstance(dim,tuple):
     if keepdim:
       for i in dim:
         x=torch.prod(x,dim=i,keepdim=True)

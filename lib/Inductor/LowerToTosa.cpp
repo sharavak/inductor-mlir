@@ -170,10 +170,21 @@ class ProdLowering : public mlir::OpRewritePattern<inductor::ProdOp> {
               newShape2.push_back(inputShape[i]);
           }
           auto newType= mlir::RankedTensorType::get(newShape2, inputType.getElementType());
+
           auto tensorType = mlir::RankedTensorType::get({static_cast<int64_t>(newShape2.size())},rewriter.getIndexType());
           auto attr = mlir::DenseIntElementsAttr::get(tensorType, newShape2); // getting as DenseIntElementsAttr, since constShapeOp supports DenseIntElementsAttr
-  
-          auto types = mlir::tosa::shapeType::get(rewriter.getContext(), newShape2.size());  // used to get 
+         
+
+          //MLIRContext is the top-level object for a collection of MLIR operations.
+          //It holds immortal uniqued objects like types, and the tables used to unique them.
+
+          auto types = mlir::tosa::shapeType::get(rewriter.getContext(), newShape2.size());  // use to construct Shape with static rank and Index element type
+                  // Function signature static shapeType get(::mlir::MLIRContext *context, int rank);
+
+          // shapeType definition in td -> llvm-project/mlir/include/mlir/Dialect/Tosa/IR/TosaTypesBase.td 
+
+          
+          
           auto shapeOP=rewriter.create<mlir::tosa::ConstShapeOp>(loc, types, attr);
 
 
@@ -209,8 +220,10 @@ class ProdLowering : public mlir::OpRewritePattern<inductor::ProdOp> {
         auto tensorType = mlir::RankedTensorType::get({static_cast<int64_t>(newShape2.size())},rewriter.getIndexType()); // for indextype
 
         auto attr = mlir::DenseIntElementsAttr::get(tensorType, newShape2); // getting as DenseIntElementsAttr, since constShapeOp supports only DenseIntElementsAttr
+        
+        /// Get or construct an instance of the type `Ty` with provided arguments.
 
-        auto type = mlir::tosa::shapeType::get(rewriter.getContext(), newShape2.size());  // used to get the index type
+        auto type = mlir::tosa::shapeType::get(rewriter.getContext(), newShape2.size());   
 
         auto shapeOP=rewriter.create<mlir::tosa::ConstShapeOp>(loc, type, attr);
 
