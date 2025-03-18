@@ -41,5 +41,17 @@ def Inductor_BatchNorm2dOp :Inductor_Op<"batchnorm2d",[SameOperandsAndResultShap
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 
 }
+def Inductor_ProdOp: Inductor_Op<"prod">{
+  let summary="prod";
+  let description = [{
+    Returns the product of each row of the input tensor in the given dimension dim.
+  }];
+  let arguments=(ins AnyTensor:$input,
+                      OptionalAttr<AnyAttrOf<[ AnyI64Attr,DenseI64ArrayAttr]>>:$dim,
+                      DefaultValuedOptionalAttr<BoolAttr,"false">:$keepdim
+    );
+  let results=(outs AnyTensor:$output);
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
+}
 
 #endif // INDUCTOR_OPS

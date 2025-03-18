@@ -18,6 +18,7 @@
 
 
 #include<iostream>
+
 using namespace std;
 
 
@@ -28,7 +29,7 @@ class AddOpLowering : public mlir::OpRewritePattern<inductor::AddOp> {
   matchAndRewrite(inductor::AddOp op, mlir::PatternRewriter &rewriter) const override {
     mlir::Type resultType = op.getResult().getType();
     mlir::tosa::AddOp addop=rewriter.create<mlir::tosa::AddOp>(op.getLoc(),resultType, op.getOperands());
-    rewriter.replaceOp(op, addop);
+
     return mlir::success();
 }
 };
@@ -116,6 +117,7 @@ class BatchNorm2dOpLowering : public mlir::OpRewritePattern<inductor::BatchNorm2
 
       auto betaType=mlir::RankedTensorType::get({1,inputShape[1],1,1}, rewriter.getF32Type());
       auto betaAttr = mlir::DenseElementsAttr::get(betaType, rewriter.getFloatAttr(rewriter.getF32Type(), 0.0));
+
       auto beta = rewriter.create<mlir::tosa::ConstOp>(loc,betaType,betaAttr); // (1,C,1,1)
 
       auto new_xnorm=rewriter.create<mlir::tosa::AddOp>(loc,inputType,xnorm,beta);
@@ -127,6 +129,110 @@ class BatchNorm2dOpLowering : public mlir::OpRewritePattern<inductor::BatchNorm2
     return mlir::success();
   }
 };
+
+
+class ProdLowering : public mlir::OpRewritePattern<inductor::ProdOp> {
+  using OpRewritePattern<inductor::ProdOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(inductor::ProdOp op,
+                                      mlir::PatternRewriter &rewriter) const override {
+    mlir::Location loc = op.getLoc();
+    auto input = op.getInput();
+    auto inputType = input.getType(); 
+    auto inputTensorType = inputType.cast<mlir::RankedTensorType>();
+    auto inputShape = inputTensorType.getShape();
+    
+    auto keepdim=op.getKeepdim();
+    mlir::SmallVector<int64_t> newShape;
+    if(llvm::isa<mlir::IntegerAttr>(op.getDimAttr())){  
+        auto dimAttr=llvm::dyn_cast<mlir::IntegerAttr>(op.getDimAttr());
+        auto dim=dimAttr.getInt();
+    // mlir::tosa::ReduceProdOp supports keepdim since after reducing the axis, the resultant dim is reduced to 1
+    // for example is shape is (2,3,4), dim=1 then output is -> (2,1,4)
+    // So, it naturally supports keepdim 
+
+      for(int64_t i=0;i<inputShape.size();i++){
+        if(i!=dim)
+          newShape.push_back(inputShape[i]);
+        else{
+          newShape.push_back(1);
+        }
+      }
+      auto prod = mlir::RankedTensorType::get(newShape, inputType.getElementType());
+      if(!keepdim){
+          auto red_prod = rewriter.create<mlir::tosa::ReduceProdOp>(loc, prod, input, dim);  
+          mlir::SmallVector<int64_t> newShape2;
+          for(int64_t i=0;i<inputShape.size();i++){
+            if(i!=dim)
+              newShape2.push_back(inputShape[i]);
+          }
+          auto newType= mlir::RankedTensorType::get(newShape2, inputType.getElementType());
+
+          auto tensorType = mlir::RankedTensorType::get({static_cast<int64_t>(newShape2.size())},rewriter.getIndexType());
+          auto attr = mlir::DenseIntElementsAttr::get(tensorType, newShape2); // getting as DenseIntElementsAttr, since constShapeOp supports DenseIntElementsAttr
+         
+
+          //MLIRContext is the top-level object for a collection of MLIR operations.
+          //It holds immortal uniqued objects like types, and the tables used to unique them.
+
+          auto types = mlir::tosa::shapeType::get(rewriter.getContext(), newShape2.size());  // use to construct Shape with static rank and Index element type
+                  // Function signature static shapeType get(::mlir::MLIRContext *context, int rank);
+
+          // shapeType definition in td -> llvm-project/mlir/include/mlir/Dialect/Tosa/IR/TosaTypesBase.td 
+
+          
+          
+          auto shapeOP=rewriter.create<mlir::tosa::ConstShapeOp>(loc, types, attr);
+
+
+          auto reshape=rewriter.create<mlir::tosa::ReshapeOp>(loc,newType,red_prod,shapeOP);        
+          rewriter.replaceOp(op, reshape);
+      }else{
+        auto red_prod = rewriter.create<mlir::tosa::ReduceProdOp>(loc, prod, input, dim);
+        rewriter.replaceOp(op, red_prod);
+      }
+    }else{ // if the dim is list of tuples
+      auto arrayAttr = llvm::dyn_cast<mlir::DenseI64ArrayAttr>(op.getDimAttr()) ;
+      for(int64_t ele:inputShape)
+        newShape.push_back(ele);
+      for (int64_t axis : arrayAttr.asArrayRef()){
+        newShape[axis]=1;
+        auto type=mlir::RankedTensorType::get(newShape,inputType.getElementType());
+        input = rewriter.create<mlir::tosa::ReduceProdOp>(loc, type, input, axis);
+      }
+      if(keepdim) // If the keepdim is true
+          rewriter.replaceOp(op, input); 
+      else{      
+        for(int64_t i=0;i<arrayAttr.size();i++){ 
+          newShape[arrayAttr[i]]= -1;  // initially marking the input dim of tuples as -1                              
+        }
+        mlir::SmallVector<int64_t> newShape2;
+        for(int64_t i=0;i<inputShape.size();i++){
+          if(newShape[i]!=-1)
+            newShape2.push_back(inputShape[i]); // getting the newshape
+        }
+
+        auto newType= mlir::RankedTensorType::get(newShape2, inputType.getElementType());
+
+        auto tensorType = mlir::RankedTensorType::get({static_cast<int64_t>(newShape2.size())},rewriter.getIndexType()); // for indextype
+
+        auto attr = mlir::DenseIntElementsAttr::get(tensorType, newShape2); // getting as DenseIntElementsAttr, since constShapeOp supports only DenseIntElementsAttr
+        
+        /// Get or construct an instance of the type `Ty` with provided arguments.
+
+        auto type = mlir::tosa::shapeType::get(rewriter.getContext(), newShape2.size());   
+
+        auto shapeOP=rewriter.create<mlir::tosa::ConstShapeOp>(loc, type, attr);
+
+        auto reshape=rewriter.create<mlir::tosa::ReshapeOp>(loc,newType,input,shapeOP);    
+        
+        rewriter.replaceOp(op, reshape);
+      }
+    }
+    return mlir::success();
+  }
+};
+
 
 namespace 
 {
@@ -141,6 +247,7 @@ namespace
       void getDependentDialects(mlir::DialectRegistry &registry) const override {
         registry.insert<mlir::tosa::TosaDialect>();
       }
+
       void runOnOperation() final;  
     };
 
@@ -155,6 +262,8 @@ void InductorToTosaLowerPass::runOnOperation() {
 
   patterns.add<AddOpLowering>(&getContext());
   patterns.add<BatchNorm2dOpLowering>(&getContext());
+  patterns.add<ProdLowering>(&getContext());
+
 
 
   if (mlir::failed(mlir::applyPartialConversion(getOperation(), target,std::move(patterns)))) {
@@ -164,4 +273,5 @@ void InductorToTosaLowerPass::runOnOperation() {
   
 std::unique_ptr<mlir::Pass> inductor::createLowerToTosaPass() {
     return std::make_unique<InductorToTosaLowerPass>();
+
   }
