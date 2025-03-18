@@ -15,7 +15,6 @@ def Inductor_Dialect : Dialect{
     let cppNamespace="::inductor";
 }
 
-
 class Inductor_Op<string mnemonic, list<Trait> traits = []> :Op<Inductor_Dialect, mnemonic, traits>;
 
 
