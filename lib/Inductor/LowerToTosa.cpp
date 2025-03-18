@@ -18,9 +18,8 @@
 
 
 #include<iostream>
-#include<vector>
-using namespace std;
 
+using namespace std;
 
 
 class AddOpLowering : public mlir::OpRewritePattern<inductor::AddOp> {
@@ -30,12 +29,10 @@ class AddOpLowering : public mlir::OpRewritePattern<inductor::AddOp> {
   matchAndRewrite(inductor::AddOp op, mlir::PatternRewriter &rewriter) const override {
     mlir::Type resultType = op.getResult().getType();
     mlir::tosa::AddOp addop=rewriter.create<mlir::tosa::AddOp>(op.getLoc(),resultType, op.getOperands());
-    rewriter.replaceOp(op.getOperation(), addop.getOperation());
+
     return mlir::success();
 }
 };
-
-
 
 class BatchNorm2dOpLowering : public mlir::OpRewritePattern<inductor::BatchNorm2dOp> {
 
@@ -120,7 +117,7 @@ class BatchNorm2dOpLowering : public mlir::OpRewritePattern<inductor::BatchNorm2
 
       auto betaType=mlir::RankedTensorType::get({1,inputShape[1],1,1}, rewriter.getF32Type());
       auto betaAttr = mlir::DenseElementsAttr::get(betaType, rewriter.getFloatAttr(rewriter.getF32Type(), 0.0));
-      // llvm::ArrayRef(shape)
+
       auto beta = rewriter.create<mlir::tosa::ConstOp>(loc,betaType,betaAttr); // (1,C,1,1)
 
       auto new_xnorm=rewriter.create<mlir::tosa::AddOp>(loc,inputType,xnorm,beta);
@@ -236,6 +233,7 @@ class ProdLowering : public mlir::OpRewritePattern<inductor::ProdOp> {
   }
 };
 
+
 namespace 
 {
     class InductorToTosaLowerPass
@@ -249,7 +247,7 @@ namespace
       void getDependentDialects(mlir::DialectRegistry &registry) const override {
         registry.insert<mlir::tosa::TosaDialect>();
       }
-    
+
       void runOnOperation() final;  
     };
 
@@ -267,6 +265,7 @@ void InductorToTosaLowerPass::runOnOperation() {
   patterns.add<ProdLowering>(&getContext());
 
 
+
   if (mlir::failed(mlir::applyPartialConversion(getOperation(), target,std::move(patterns)))) {
       signalPassFailure();
     }
@@ -274,4 +273,5 @@ void InductorToTosaLowerPass::runOnOperation() {
   
 std::unique_ptr<mlir::Pass> inductor::createLowerToTosaPass() {
     return std::make_unique<InductorToTosaLowerPass>();
+
   }

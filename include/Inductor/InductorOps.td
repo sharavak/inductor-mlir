@@ -13,8 +13,8 @@ def Inductor_AddOp : Inductor_Op<"add",[SameOperandsAndResultShape]> {
     Adds two operands, which can be either scalars or tensors of the same type.
   }];
   
-    let arguments = (ins AnyTypeOf<[AnyTensor, AnyFloat, AnyInteger]>:$a, 
-                       AnyTypeOf<[AnyTensor, AnyFloat, AnyInteger]>:$b);
+    let arguments = (ins AnyTypeOf<[AnyTensor, AnyFloat, AnyInteger]>:$lhs, 
+                       AnyTypeOf<[AnyTensor, AnyFloat, AnyInteger]>:$rhs);
   
     let results = (outs AnyTypeOf<[AnyTensor, AnyFloat, AnyInteger]>:$result);
 
