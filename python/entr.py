@@ -24,11 +24,15 @@ def customEntr(input):
     input[zero_mask] = 0 # Replacing with  zero
 
     return input
+
 inp=torch.tensor([-1,-1,-1,-1,-1],dtype=torch.float32)
-assert torch.allclose(customEntr(inp),torch.special.entr(inp))
+assert torch.allclose(customEntr(inp.clone()),torch.special.entr(inp.clone()))
 
 inp=torch.tensor([2,3,5,8,9],dtype=torch.float32)
-assert torch.allclose(customEntr(inp),torch.special.entr(inp))
+assert torch.allclose(customEntr(inp.clone()),torch.special.entr(inp.clone()))
 
 inp=torch.randn(8,5,6,9)
-assert torch.allclose(torch.allclose(customEntr(inp),torch.special.entr(inp)))
+assert torch.allclose(customEntr(inp.clone()),torch.special.entr(inp.clone()))
+
+inp=torch.tensor([85,0,25,-89,-98,-1],dtype=torch.float32)
+assert torch.allclose(customEntr(inp.clone()),torch.special.entr(inp.clone()))

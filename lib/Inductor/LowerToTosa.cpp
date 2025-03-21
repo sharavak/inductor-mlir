@@ -246,10 +246,8 @@ class EntrOpLowering : public mlir::OpRewritePattern<inductor::EntrOp> {
     auto inputTensorType = llvm::dyn_cast<mlir::RankedTensorType>(inputType);
     auto inputShape = inputTensorType.getShape();
 
-    auto oneType=mlir::RankedTensorType::get(inputShape, inputType.getElementType());
-    auto oneAttr = mlir::DenseElementsAttr::get(oneType, rewriter.getFloatAttr(inputType.getElementType(), -1.0));
-    
-    float infy=numeric_limits<double>::infinity()*-1; // to get -inf 
+    auto oneAttr = mlir::DenseElementsAttr::get(inputTensorType, rewriter.getFloatAttr(inputType.getElementType(), -1.0));
+    auto zeroAttr = mlir::DenseElementsAttr::get(inputTensorType, rewriter.getFloatAttr(inputType.getElementType(),0.0 ));
 
     auto shiftType = mlir::RankedTensorType::get({1}, rewriter.getIntegerType(8));
     auto shiftAttr = mlir::DenseElementsAttr::get(shiftType, rewriter.getIntegerAttr(rewriter.getIntegerType(8), 1));
@@ -257,10 +255,9 @@ class EntrOpLowering : public mlir::OpRewritePattern<inductor::EntrOp> {
 
     auto boolType=mlir::RankedTensorType::get(inputShape,  rewriter.getI1Type());
 
-    auto zeroAttr = mlir::DenseElementsAttr::get(oneType, rewriter.getFloatAttr(inputType.getElementType(),0.0 ));
-    
-    auto one = rewriter.create<mlir::tosa::ConstOp>(loc,oneType,oneAttr);
-    auto zero = rewriter.create<mlir::tosa::ConstOp>(loc,oneType,zeroAttr);
+   
+    auto one = rewriter.create<mlir::tosa::ConstOp>(loc,inputTensorType,oneAttr);
+    auto zero = rewriter.create<mlir::tosa::ConstOp>(loc,inputTensorType,zeroAttr);
 
     auto posMask=rewriter.create<mlir::tosa::GreaterOp>(loc,boolType,input,zero);
 
@@ -268,22 +265,29 @@ class EntrOpLowering : public mlir::OpRewritePattern<inductor::EntrOp> {
 
     auto negMask=rewriter.create<mlir::tosa::GreaterOp>(loc,boolType,zero,input);
 
+    // selectOp is broadcastable
+
+    // Working of Select Op -> 1st operand:Predicate(boolean tensor), 2nd Operand:input1, 3rd Operand:input2
+    // input1 tensor will be chosen when the condition(Predicate) is true.
+    // input2 tensor will be chosen when the condition(Predicate) is false.
+
+    input=rewriter.create<mlir::tosa::SelectOp>(loc,inputType,posMask,input,zero);
     // -x*log(x)
-    input=rewriter.create<mlir::tosa::SelectOp>(loc,inputType,posMask,input,input);
     auto negInp=rewriter.create<mlir::tosa::MulOp>(loc,inputType,input,one,constShift.getResult());
     auto res=rewriter.create<mlir::tosa::LogOp>(loc,inputType,input);
-    input=rewriter.create<mlir::tosa::MulOp>(loc,inputType,negInp,res,constShift.getResult());
+    auto interRes1=rewriter.create<mlir::tosa::MulOp>(loc,inputType,negInp,res,constShift.getResult());
+    // intermediateResult2
     
-    // selectOp is broadcastable
-    auto zeroValue=rewriter.create<mlir::tosa::SelectOp>(loc,inputType,zeroMask,input,input);
-    
-    input=rewriter.create<mlir::tosa::AddOp>(loc,inputType,input,zeroValue); // 
+    auto interRes2=rewriter.create<mlir::tosa::SelectOp>(loc,inputType,zeroMask,input,zero);
+     // intermediateResult2
+       
+    auto interRes3=rewriter.create<mlir::tosa::SelectOp>(loc,inputType,negMask,input,zero); 
+    // intermediateResult3
 
-    auto negValue=rewriter.create<mlir::tosa::SelectOp>(loc,inputType,negMask,input,input);
-    input=rewriter.create<mlir::tosa::AddOp>(loc,inputType,input,negValue); // 
-
+    auto output=rewriter.create<mlir::tosa::AddOp>(loc,inputType,interRes1,interRes2); 
+    output=rewriter.create<mlir::tosa::AddOp>(loc,inputType,output,interRes3); 
     
-    rewriter.replaceOp(op, input);
+    rewriter.replaceOp(op, output);
 
     return mlir::success();
 }
