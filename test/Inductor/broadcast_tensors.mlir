@@ -1,8 +1,8 @@
 // RUN: inductor-opt %s | FileCheck %s
 
 //CHECK-LABEL: @test_broadcast_tensors_1
-func.func @test_broadcast_tensors_1(%a: tensor<1x1x5xf32>,%b: tensor<6x5xf32>) -> (tensor<1x6x5xf32>,tensor<1x6x5xf32>) {
-    %0 , %1 = inductor.broadcast_tensors %a, %b:(tensor<1x1x5xf32>,tensor<6x5xf32>) -> (tensor<1x6x5xf32>,tensor<1x6x5xf32>)
+func.func @test_broadcast_tensors_1(%a: tensor<1x6x5xf32>,%b: tensor<6x5xf32>) -> (tensor<1x6x5xf32>,tensor<1x6x5xf32>) {
+    %0 , %1 = inductor.broadcast_tensors %a, %b:(tensor<1x6x5xf32>,tensor<6x5xf32>) -> (tensor<1x6x5xf32>,tensor<1x6x5xf32>)
     return %0, %1 : tensor<1x6x5xf32>, tensor<1x6x5xf32>
   //CHECK:       %0 = tosa.const_shape  {value = dense<[1, 1, 5]> : tensor<3xindex>} : () -> !tosa.shape<3>
   //CHECK-NEXT:  %1 = tosa.reshape %arg0, %0 : (tensor<1x1x5xf32>, !tosa.shape<3>) -> tensor<1x1x5xf32>
@@ -13,7 +13,6 @@ func.func @test_broadcast_tensors_1(%a: tensor<1x1x5xf32>,%b: tensor<6x5xf32>) -
   //CHECK-NEXT:  %6 = tosa.const_shape  {value = dense<1> : tensor<3xindex>} : () -> !tosa.shape<3>
   //CHECK-NEXT:  %7 = tosa.tile %5, %6 : (tensor<1x6x5xf32>, !tosa.shape<3>) -> tensor<1x6x5xf32>
   //CHECK-NEXT:  return %3, %7 : tensor<1x6x5xf32>, tensor<1x6x5xf32>
-
 } 
 
 //CHECK-LABEL: @test_broadcast_tensors_2

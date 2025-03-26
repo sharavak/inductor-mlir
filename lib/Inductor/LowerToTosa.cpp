@@ -248,6 +248,9 @@ mlir::Value calculateReshapeAndBroadcast(mlir::Operation *op,
       // This will pad the ones from the leftmost part according to the high Rank
       // For eg : rank1: [2,3],rank2:[1,1,3] -> OutputRank=[1,2,3]
 
+      if(llvm::equal(inputShape,outputShape)){
+        return input;
+      }
 
       for(int64_t i=0;i<outputTensorType.getRank()-inputTensorType.getRank();i++)
         targetShape.push_back(1);
