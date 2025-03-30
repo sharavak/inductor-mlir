@@ -54,4 +54,14 @@ def Inductor_ProdOp: Inductor_Op<"prod">{
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
+def Inductor_EntrOp: Inductor_Op<"entr">{
+  let summary="entr";
+  let description = [{
+    Computes the entropy on input elementwise.
+  }];
+  let arguments=(ins AnyTensor:$input);
+  let results=(outs AnyTensor:$output);
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
+}
+
 #endif // INDUCTOR_OPS
