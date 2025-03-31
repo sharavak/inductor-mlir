@@ -57,7 +57,7 @@ def Inductor_ProdOp: Inductor_Op<"prod">{
 def Inductor_BroadcastTensorsOp: Inductor_Op<"broadcast_tensors">{
   let summary="broadcast_tensorsOp";
   let description = [{
-   Broadcasts the given tensors 
+    "It takes multiple inputs and broadcasts them according to broadcasting rules, making the tensors compatible for element-wise operations."
   }];
     let arguments=(ins Variadic<AnyTensor>:$inputs
     );
