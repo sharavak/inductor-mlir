@@ -15,7 +15,10 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+
 #include "Utils/ShapeType.h"
+#include<iostream>
+
 
 #include <iostream>
 #include <utility>
@@ -293,11 +296,68 @@ class ProdLowering : public mlir::OpRewritePattern<inductor::ProdOp> {
   }
 };
 
+
+class EntrOpLowering : public mlir::OpRewritePattern<inductor::EntrOp> {
+  using OpRewritePattern<inductor::EntrOp>::OpRewritePattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(inductor::EntrOp op, mlir::PatternRewriter &rewriter) const override {
+    mlir::Location loc=op.getLoc();
+    auto input=op.getInput();
+    auto inputType=input.getType();
+    auto inputTensorType = llvm::dyn_cast<mlir::RankedTensorType>(inputType);
+    auto inputShape = inputTensorType.getShape();
+
+    auto oneAttr = mlir::DenseElementsAttr::get(inputTensorType, rewriter.getFloatAttr(inputType.getElementType(), -1.0));
+    auto zeroAttr = mlir::DenseElementsAttr::get(inputTensorType, rewriter.getFloatAttr(inputType.getElementType(),0.0 ));
+
+    auto shiftType = mlir::RankedTensorType::get({1}, rewriter.getIntegerType(8));
+    auto shiftAttr = mlir::DenseElementsAttr::get(shiftType, rewriter.getIntegerAttr(rewriter.getIntegerType(8), 1));
+    auto constShift =rewriter.create<mlir::tosa::ConstOp>(loc, shiftType, shiftAttr);
+
+    auto boolType=mlir::RankedTensorType::get(inputShape,  rewriter.getI1Type());
+
+   
+    auto one = rewriter.create<mlir::tosa::ConstOp>(loc,inputTensorType,oneAttr);
+    auto zero = rewriter.create<mlir::tosa::ConstOp>(loc,inputTensorType,zeroAttr);
+
+    auto posMask=rewriter.create<mlir::tosa::GreaterOp>(loc,boolType,input,zero);
+
+    auto zeroMask=rewriter.create<mlir::tosa::EqualOp>(loc,boolType,input,zero);
+
+    auto negMask=rewriter.create<mlir::tosa::GreaterOp>(loc,boolType,zero,input);
+
+    // selectOp is broadcastable
+
+    // Working of Select Op -> 1st operand:Predicate(boolean tensor), 2nd Operand:input1, 3rd Operand:input2
+    // input1 tensor will be chosen when the condition(Predicate) is true.
+    // input2 tensor will be chosen when the condition(Predicate) is false.
+
+    input=rewriter.create<mlir::tosa::SelectOp>(loc,inputType,posMask,input,zero);
+    // -x*log(x)
+    auto negInp=rewriter.create<mlir::tosa::MulOp>(loc,inputType,input,one,constShift.getResult());
+    auto res=rewriter.create<mlir::tosa::LogOp>(loc,inputType,input);
+    auto interRes1=rewriter.create<mlir::tosa::MulOp>(loc,inputType,negInp,res,constShift.getResult());
+    // intermediateResult2
+    
+    auto interRes2=rewriter.create<mlir::tosa::SelectOp>(loc,inputType,zeroMask,input,zero);
+     // intermediateResult2
+       
+    auto interRes3=rewriter.create<mlir::tosa::SelectOp>(loc,inputType,negMask,input,zero); 
+    // intermediateResult3
+
+    auto output=rewriter.create<mlir::tosa::AddOp>(loc,inputType,interRes1,interRes2); 
+    output=rewriter.create<mlir::tosa::AddOp>(loc,inputType,output,interRes3); 
+    
+    rewriter.replaceOp(op, output);
+
+    return mlir::success();
+}
+};
 class BroadcastTensorsOpLowering
     : public mlir::OpRewritePattern<inductor::BroadcastTensorsOp> {
 
   using OpRewritePattern<inductor::BroadcastTensorsOp>::OpRewritePattern;
-
   mlir::LogicalResult
   matchAndRewrite(inductor::BroadcastTensorsOp op,
                   mlir::PatternRewriter &rewriter) const override {
@@ -399,6 +459,7 @@ void InductorToTosaLowerPass::runOnOperation() {
   patterns.add<BatchNorm2dOpLowering>(&getContext());
   patterns.add<ProdLowering>(&getContext());
   patterns.add<BroadcastTensorsOpLowering>(&getContext());
+  patterns.add<EntrOpLowering>(&getContext());
 
   if (mlir::failed(mlir::applyPartialConversion(getOperation(), target,
                                                 std::move(patterns)))) {

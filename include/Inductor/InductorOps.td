@@ -62,7 +62,15 @@ def Inductor_BroadcastTensorsOp: Inductor_Op<"broadcast_tensors">{
     let arguments=(ins Variadic<AnyTensor>:$inputs
     );
   let results=(outs Variadic<AnyTensor>:$outputs);
-                    
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
+}                    
+def Inductor_EntrOp: Inductor_Op<"entr">{
+  let summary="entr";
+  let description = [{
+    Computes the entropy on input elementwise.
+  }];
+  let arguments=(ins AnyTensor:$input);
+  let results=(outs AnyTensor:$output);
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
