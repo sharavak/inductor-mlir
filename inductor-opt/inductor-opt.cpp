@@ -48,7 +48,9 @@ int loadMLIR(mlir::MLIRContext &context,mlir::OwningOpRef<mlir::ModuleOp> &modul
   }
   return 0;
 }
-
+void inductorToTOSAPipelineBuilder(mlir::OpPassManager &manager){
+  manager.addPass(inductor::createLowerToTosaPass());
+}
 
 int loadAndProcessMLIR(mlir::MLIRContext &context,mlir::OwningOpRef<mlir::ModuleOp> &module) {
   if (int error = loadMLIR(context, module)){
