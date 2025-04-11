@@ -54,6 +54,16 @@ def Inductor_ProdOp: Inductor_Op<"prod">{
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
+def Inductor_BroadcastTensorsOp: Inductor_Op<"broadcast_tensors">{
+  let summary="broadcast_tensorsOp";
+  let description = [{
+    "It takes multiple inputs and broadcasts them according to broadcasting rules, making the tensors compatible for element-wise operations."
+  }];
+    let arguments=(ins Variadic<AnyTensor>:$inputs
+    );
+  let results=(outs Variadic<AnyTensor>:$outputs);
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
+}                    
 def Inductor_EntrOp: Inductor_Op<"entr">{
   let summary="entr";
   let description = [{

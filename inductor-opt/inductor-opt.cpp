@@ -18,26 +18,16 @@
 
 
 
-// int loadMLIR(mlir::MLIRContext &context,mlir::OwningOpRef<mlir::ModuleOp> &module) {
  
                                
 
-//   mlir::PassManager passManager(&context);
-//   //passManager.addPass(inductor::createLowerToTosaPass());
 
-//   if (mlir::failed(passManager.run(*module))) {
-//     return 4;
-//   }
-//   return 0;
-// }
+void inductorToTOSAPipelineBuilder(mlir::OpPassManager &manager){
+  manager.addPass(inductor::createLowerToTosaPass());
+}
 
 
-// int loadAndProcessMLIR(mlir::MLIRContext &context,mlir::OwningOpRef<mlir::ModuleOp> &module) {
-//   if (int error = loadMLIR(context, module)){
-//     return error;
-//   }
-//   return 0;
-// }
+
 
 
 int main(int argc, char **argv) {

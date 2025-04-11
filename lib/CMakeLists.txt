@@ -1,4 +1,5 @@
 add_subdirectory(Inductor)
+add_subdirectory(Utils)
 
 add_mlir_library(InductorDialectTrait
     InductorBroadcastTrait.cpp
