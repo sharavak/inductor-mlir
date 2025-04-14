@@ -11,6 +11,6 @@
 mlir::Value getConstShape(mlir::RankedTensorType tensorType,
                           mlir::SmallVector<int64_t> &targetShape,
                           mlir::PatternRewriter &rewriter,
-                          inductor::BroadcastTensorsOp op);
+                          mlir::Operation *op);
 
 #endif

@@ -9,3 +9,9 @@ func.func @test_reshape(%a: tensor<4x3x3xf32>) -> tensor<9x1x4xf32> {
     //CHECK-NEXT: return %1 : tensor<9x1x4xf32>
 }
 
+// CHECK-LABEL: @test_reshape_with_same_output_shape_and_input_shape
+func.func @test_reshape_with_same_output_shape_and_input_shape(%a: tensor<9x1x4xf32>) -> tensor<9x1x4xf32> {
+    %0 = inductor.reshape %a { shapes = array<i64: 9,1,4>} : (tensor<9x1x4xf32>) -> tensor<9x1x4xf32>
+    return %0 : tensor<9x1x4xf32>   
+    //CHECK:  return %arg0 : tensor<9x1x4xf32>
+}

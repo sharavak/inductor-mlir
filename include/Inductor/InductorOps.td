@@ -76,7 +76,7 @@ def Inductor_EntrOp: Inductor_Op<"entr">{
 
 def Inductor_TileOp: Inductor_Op<"tile">{
   let summary="tile";
-  let description=[{ Computes the tile on the inputs}];
+  let description=[{ Computes the tile on the input}];
   let arguments=(ins AnyTensor:$input, 
                     DenseI64ArrayAttr:$shapes);
   let results =(outs AnyTensor: $output);

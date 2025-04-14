@@ -437,7 +437,6 @@ class TileOpLowering : public mlir::OpRewritePattern<inductor::TileOp> {
   mlir::LogicalResult matchAndRewrite(inductor::TileOp op, mlir::PatternRewriter &rewriter) const override {
       mlir::Location loc=op.getLoc();
       auto input=op.getInput();
-      auto shape=op.getShapes();
       auto inputType=input.getType();
       auto inputTensorType = llvm::dyn_cast<mlir::RankedTensorType>(inputType);
       
@@ -451,12 +450,18 @@ class TileOpLowering : public mlir::OpRewritePattern<inductor::TileOp> {
       for(int shape:arrayAttr.asArrayRef())
         tileShape.push_back(shape);
       
+      // if the input shape == output shape then return the input
+      if(llvm::equal(inputTensorType.getShape(),outputShape)){
+        rewriter.replaceOp(op, input); 
+        return mlir::success();
+      }
+      
       auto tensorIndexType = mlir::RankedTensorType::get({static_cast<int64_t>(tileShape.size())},rewriter.getIndexType());
-      auto newType= mlir::RankedTensorType::get(outputShape, inputTensorType.getElementType());
-      auto indexAttr = mlir::DenseIntElementsAttr::get(tensorIndexType, tileShape); 
-      auto indexType = mlir::tosa::shapeType::get(rewriter.getContext(), tileShape.size());     
-      auto shapeOp=rewriter.create<mlir::tosa::ConstShapeOp>(loc, indexType, indexAttr);
-      auto tileOp=rewriter.create<mlir::tosa::TileOp>(loc,newType,input,shapeOp);
+      auto tileType= mlir::RankedTensorType::get(outputShape, inputTensorType.getElementType());
+
+        
+      auto tileOp=rewriter.create<mlir::tosa::TileOp>(loc,tileType,input,
+        getConstShape(tensorIndexType, tileShape, rewriter, op));
       rewriter.replaceOp(op,tileOp);
       return mlir::success();
   }
@@ -472,22 +477,23 @@ class ReshapeOpLowering : public mlir::OpRewritePattern<inductor::ReshapeOp> {
       auto inputTensorType = llvm::dyn_cast<mlir::RankedTensorType>(inputType);
       auto arrayAttr = op.getShapesAttr();
 
-      
-
       mlir::SmallVector<int64_t>outputShape;
       
       for(int64_t i=0;i<arrayAttr.size();i++)
         outputShape.push_back(arrayAttr[i]);
+
+      // if the input shape == output shape then return the input
+      if(llvm::equal(outputShape,inputTensorType.getShape())){
+        rewriter.replaceOp(op, input); 
+        return mlir::success();
+      }
     
       
       auto tensorIndexType = mlir::RankedTensorType::get({static_cast<int64_t>(outputShape.size())},rewriter.getIndexType());
       auto reshapeType= mlir::RankedTensorType::get(outputShape, inputTensorType.getElementType());
 
-      auto indexAttr = mlir::DenseIntElementsAttr::get(tensorIndexType, outputShape); 
-      auto indexType = mlir::tosa::shapeType::get(rewriter.getContext(), outputShape.size());     
-      auto shapeOp=rewriter.create<mlir::tosa::ConstShapeOp>(loc, indexType, indexAttr);
-      
-      auto reshapeOp=rewriter.create<mlir::tosa::ReshapeOp>(loc,reshapeType,input,shapeOp);
+      auto reshapeOp=rewriter.create<mlir::tosa::ReshapeOp>(loc,reshapeType,input, 
+        getConstShape(tensorIndexType, outputShape, rewriter, op));
       rewriter.replaceOp(op,reshapeOp);
       return mlir::success();
   }
