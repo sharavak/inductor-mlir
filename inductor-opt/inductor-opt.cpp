@@ -41,6 +41,10 @@ int main(int argc, char **argv) {
 
     mlir::OwningOpRef<mlir::ModuleOp> module;
     mlir::registerAllPasses();
+
+    mlir::PassPipelineRegistration<>(
+      "inductor-to-tosa", "Run passes to lower the inductor dialect to TOSA",
+      inductorToTOSAPipelineBuilder);
     
     return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Inductor Pass Driver", registry));
