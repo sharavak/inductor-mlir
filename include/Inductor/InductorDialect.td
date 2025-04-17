@@ -2,6 +2,7 @@
 #define INDUCTOR_DIALECT
 
 include "mlir/IR/OpBase.td"
+include "mlir/IR/Traits.td"
 
 
 

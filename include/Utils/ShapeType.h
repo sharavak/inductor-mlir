@@ -3,7 +3,7 @@
 
 #include "Inductor/InductorDialect.h"
 #include "Inductor/InductorOps.h"
-#include "Inductor/InductorPasses.h"
+#include "Inductor/Passes.h"
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "llvm/ADT/TypeSwitch.h"

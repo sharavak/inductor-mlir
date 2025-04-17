@@ -15,13 +15,14 @@ set(LIBS
         MLIRPass
         MLIRSupport
         MLIRTargetLLVMIRExport
-        MLIRTransforms
+        MLIRInductorTransforms
         MLIRTosaDialect
         InductorDialectTrait
         
+        
         )
 add_llvm_executable(inductor-opt inductor-opt.cpp)
-
+# InductorDialectTrait
 llvm_update_compile_flags(inductor-opt)
 target_link_libraries(inductor-opt PRIVATE ${LIBS})
 

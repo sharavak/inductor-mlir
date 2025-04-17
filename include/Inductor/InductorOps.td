@@ -10,19 +10,35 @@ include "InductorTraits.td"
 def Inductor_AddOp : Inductor_Op<"add",[InductorBroadcastTrait]> {
     let summary = "add";
     let description = [{
-    Adds two operands, which can be either scalars or tensors of the same type.
+    Elementwise addition of input1 and input2 of the tensor type
   }];
   
-    let arguments = (ins AnyTypeOf<[AnyTensor, AnyFloat, AnyInteger]>:$lhs, 
-                       AnyTypeOf<[AnyTensor, AnyFloat, AnyInteger]>:$rhs);
+    let arguments = (ins AnyTensor :$lhs, 
+                       AnyTensor :$rhs);
   
-    let results = (outs AnyTypeOf<[AnyTensor, AnyFloat, AnyInteger]>:$result);
+    let results = (outs AnyTensor:$result);
 
     let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 
 }
 
-def Inductor_BatchNorm2dOp :Inductor_Op<"batchnorm2d",[SameOperandsAndResultShape]>{
+def Inductor_SubOp : Inductor_Op<"sub",[InductorBroadcastTrait]> {
+    let summary = "It takes two input operands as tensor types of the same rank and subtract the two inputs";
+    let description = [{
+    Elementwise addition of input1 and input2 of the tensor type
+  }];
+  
+    let arguments = (ins AnyTensor :$lhs, 
+                       AnyTensor :$rhs);
+  
+    let results = (outs AnyTensor:$result);
+
+    let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
+
+}
+
+
+def Inductor_BatchNorm2dOp :Inductor_Op<"batchnorm2d">{
   let summary="Batch Normalization2d";
   let description = [{
     Performs batch normalization over a 4D input tensor (N, C, H, W).
