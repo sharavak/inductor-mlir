@@ -4,10 +4,10 @@
 mlir::Value getConstShape(mlir::RankedTensorType tensorType,
                           mlir::SmallVector<int64_t> &targetShape,
                           mlir::PatternRewriter &rewriter,
-                          inductor::BroadcastTensorsOp op) {
-  mlir::DenseIntElementsAttr attr =
+                          mlir::Operation *op) {
+  mlir::DenseIntElementsAttr indexAttr =
       mlir::DenseIntElementsAttr::get(tensorType, targetShape);
-  mlir::Type type =
+  mlir::Type indexType =
       mlir::tosa::shapeType::get(rewriter.getContext(), targetShape.size());
-  return rewriter.create<mlir::tosa::ConstShapeOp>(op->getLoc(), type, attr);
+  return rewriter.create<mlir::tosa::ConstShapeOp>(op->getLoc(), indexType, indexAttr);
 }

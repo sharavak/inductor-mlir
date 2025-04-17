@@ -74,4 +74,25 @@ def Inductor_EntrOp: Inductor_Op<"entr">{
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
+def Inductor_TileOp: Inductor_Op<"tile">{
+  let summary="tile";
+  let description=[{ Computes the tile on the input}];
+  let arguments=(ins AnyTensor:$input, 
+                    DenseI64ArrayAttr:$shapes);
+  let results =(outs AnyTensor: $output);
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
+
+}
+
+
+def Inductor_ReshapeOp: Inductor_Op<"reshape">{
+  let summary="reshape";
+  let description=[{ Computes the reshape on the input}];
+  let arguments=(ins AnyTensor:$input, 
+                    DenseI64ArrayAttr:$shapes);
+  let results =(outs AnyTensor: $output);
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
+
+}
+
 #endif // INDUCTOR_OPS

@@ -356,8 +356,8 @@ class EntrOpLowering : public mlir::OpRewritePattern<inductor::EntrOp> {
 };
 class BroadcastTensorsOpLowering
     : public mlir::OpRewritePattern<inductor::BroadcastTensorsOp> {
-
-  using OpRewritePattern<inductor::BroadcastTensorsOp>::OpRewritePattern;
+      
+      using OpRewritePattern<inductor::BroadcastTensorsOp>::OpRewritePattern;
   mlir::LogicalResult
   matchAndRewrite(inductor::BroadcastTensorsOp op,
                   mlir::PatternRewriter &rewriter) const override {
@@ -431,6 +431,74 @@ class BroadcastTensorsOpLowering
   }
 };
 
+class TileOpLowering : public mlir::OpRewritePattern<inductor::TileOp> {
+  using OpRewritePattern<inductor::TileOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(inductor::TileOp op, mlir::PatternRewriter &rewriter) const override {
+      mlir::Location loc=op.getLoc();
+      auto input=op.getInput();
+      auto inputType=input.getType();
+      auto inputTensorType = llvm::dyn_cast<mlir::RankedTensorType>(inputType);
+      
+      mlir::SmallVector<int64_t>outputShape,tileShape;
+      
+      auto arrayAttr = op.getShapesAttr();
+
+      for(int64_t i=0;i<inputTensorType.getRank();i++)
+        outputShape.push_back(inputTensorType.getShape()[i]*arrayAttr[i]);
+
+      for(int shape:arrayAttr.asArrayRef())
+        tileShape.push_back(shape);
+      
+      // if the input shape == output shape then return the input
+      if(llvm::equal(inputTensorType.getShape(),outputShape)){
+        rewriter.replaceOp(op, input); 
+        return mlir::success();
+      }
+      
+      auto tensorIndexType = mlir::RankedTensorType::get({static_cast<int64_t>(tileShape.size())},rewriter.getIndexType());
+      auto tileType= mlir::RankedTensorType::get(outputShape, inputTensorType.getElementType());
+
+        
+      auto tileOp=rewriter.create<mlir::tosa::TileOp>(loc,tileType,input,
+        getConstShape(tensorIndexType, tileShape, rewriter, op));
+      rewriter.replaceOp(op,tileOp);
+      return mlir::success();
+  }
+};
+
+class ReshapeOpLowering : public mlir::OpRewritePattern<inductor::ReshapeOp> {
+  using OpRewritePattern<inductor::ReshapeOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(inductor::ReshapeOp op, mlir::PatternRewriter &rewriter) const override {
+      mlir::Location loc=op.getLoc();
+      auto input=op.getInput();
+      auto inputType=input.getType();
+      auto inputTensorType = llvm::dyn_cast<mlir::RankedTensorType>(inputType);
+      auto arrayAttr = op.getShapesAttr();
+
+      mlir::SmallVector<int64_t>outputShape;
+      
+      for(int64_t i=0;i<arrayAttr.size();i++)
+        outputShape.push_back(arrayAttr[i]);
+
+      // if the input shape == output shape then return the input
+      if(llvm::equal(outputShape,inputTensorType.getShape())){
+        rewriter.replaceOp(op, input); 
+        return mlir::success();
+      }
+    
+      
+      auto tensorIndexType = mlir::RankedTensorType::get({static_cast<int64_t>(outputShape.size())},rewriter.getIndexType());
+      auto reshapeType= mlir::RankedTensorType::get(outputShape, inputTensorType.getElementType());
+
+      auto reshapeOp=rewriter.create<mlir::tosa::ReshapeOp>(loc,reshapeType,input, 
+        getConstShape(tensorIndexType, outputShape, rewriter, op));
+      rewriter.replaceOp(op,reshapeOp);
+      return mlir::success();
+  }
+};
+
 namespace {
 class InductorToTosaLowerPass
     : public mlir::PassWrapper<InductorToTosaLowerPass,
@@ -460,6 +528,8 @@ void InductorToTosaLowerPass::runOnOperation() {
   patterns.add<ProdLowering>(&getContext());
   patterns.add<BroadcastTensorsOpLowering>(&getContext());
   patterns.add<EntrOpLowering>(&getContext());
+  patterns.add<TileOpLowering>(&getContext());
+  patterns.add<ReshapeOpLowering>(&getContext());
 
   if (mlir::failed(mlir::applyPartialConversion(getOperation(), target,
                                                 std::move(patterns)))) {
