@@ -1,4 +1,4 @@
-// RUN: inductor-opt %s | FileCheck %s
+// RUN: inductor-opt --inductor-to-tosa %s | FileCheck %s
 
 //CHECK-LABEL: @batchnorm_test_with_affine
 func.func @batchnorm_test_with_affine(%arg0: tensor<2x3x2x2xf32>) -> tensor<2x3x2x2xf32> {

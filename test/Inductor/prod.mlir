@@ -1,4 +1,4 @@
-// RUN: inductor-opt %s | FileCheck %s
+// RUN: inductor-opt --inductor-to-tosa %s | FileCheck %s
 
 // CHECK-LABEL: @test_prod_keepdim_with_dim_tuples
 func.func @test_prod_keepdim_with_dim_tuples(%a: tensor<4x3x3xf32>) -> tensor<1x1x3xf32> {

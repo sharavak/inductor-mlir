@@ -4,10 +4,10 @@
 
 include "InductorDialect.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "InductorTraits.td"
 
 
-
-def Inductor_AddOp : Inductor_Op<"add",[SameOperandsAndResultShape]> {
+def Inductor_AddOp : Inductor_Op<"add",[InductorBroadcastTrait]> {
     let summary = "add";
     let description = [{
     Adds two operands, which can be either scalars or tensors of the same type.

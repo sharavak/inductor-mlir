@@ -1,4 +1,4 @@
-// RUN: inductor-opt %s | FileCheck %s
+// RUN: inductor-opt --inductor-to-tosa %s | FileCheck %s
 
 //CHECK-LABEL: @test_broadcast_tensors_f32_2_inputs
 func.func @test_broadcast_tensors_f32_2_inputs(%a: tensor<1x6x5xf32>,%b: tensor<6x5xf32>) -> (tensor<1x6x5xf32>,tensor<1x6x5xf32>) {

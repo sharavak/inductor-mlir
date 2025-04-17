@@ -7,7 +7,9 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "mlir/Dialect/Traits.h"
 
+#include "Inductor/InductorTraits.h"
 #define GET_OP_CLASSES
 #include "Inductor/InductorOps.h.inc"
 

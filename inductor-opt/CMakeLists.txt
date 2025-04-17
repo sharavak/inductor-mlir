@@ -17,6 +17,8 @@ set(LIBS
         MLIRTargetLLVMIRExport
         MLIRTransforms
         MLIRTosaDialect
+        InductorDialectTrait
+        
         )
 add_llvm_executable(inductor-opt inductor-opt.cpp)
 

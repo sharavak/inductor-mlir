@@ -1,4 +1,4 @@
-//RUN: inductor-opt %s | FileCheck  %s
+//RUN: inductor-opt --inductor-to-tosa %s | FileCheck  %s
 
 //CHECK-LABEL: @test_add
 func.func @test_add(%a: tensor<2x2xf32>,%b:tensor<2x2xf32>) -> tensor<2x2xf32> {
