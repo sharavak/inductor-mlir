@@ -7,6 +7,7 @@
 
 #include "mlir/IR/Dialect.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "mlir/Dialect/Traits.h"
 
 #include "Inductor/InductorOpsDialect.h.inc"
 

@@ -1,6 +1,7 @@
 #include "Inductor/InductorDialect.h"
 #include "Inductor/InductorOps.h"
-#include "Inductor/InductorPasses.h"
+#include "Inductor/Passes.h"
+#include "Utils/ShapeType.h"
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/Dialect/Tosa/Utils/ConversionUtils.h"
@@ -14,13 +15,18 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Dialect/Tosa/Utils/ConversionUtils.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
+#include "mlir/Dialect/Tosa/Utils/ShapeUtils.h"
+#include "mlir/IR/ImplicitLocOpBuilder.h"
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/OpDefinition.h"
 
 
-#include "Utils/ShapeType.h"
+
 #include<iostream>
 
-
-#include <iostream>
 #include <utility>
 using namespace std;
 
@@ -32,9 +38,21 @@ class AddOpLowering : public mlir::OpRewritePattern<inductor::AddOp> {
                   mlir::PatternRewriter &rewriter) const override {
     mlir::Type resultType = op.getResult().getType();
     mlir::tosa::AddOp addop = rewriter.create<mlir::tosa::AddOp>(
-        op.getLoc(), resultType, op.getOperands());
-    rewriter.replaceOp(op, addop);
+      op.getLoc(), resultType, op.getOperands());
+    rewriter.replaceOp(op, addop);;
+    
+    return mlir::success();
+}
+};
 
+
+class SubOpLowering : public mlir::OpRewritePattern<inductor::SubOp> {
+  using OpRewritePattern<inductor::SubOp>::OpRewritePattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(inductor::SubOp op, mlir::PatternRewriter &rewriter) const override {
+    mlir::Type resultType = op.getResult().getType();
+    rewriter.replaceOpWithNewOp<mlir::tosa::SubOp>(op, resultType, op.getOperands());
     return mlir::success();
   }
 };
@@ -178,8 +196,9 @@ class ProdLowering : public mlir::OpRewritePattern<inductor::ProdOp> {
     auto inputType = input.getType();
     auto inputTensorType = inputType.cast<mlir::RankedTensorType>();
     auto inputShape = inputTensorType.getShape();
-
-    auto keepdim = op.getKeepdim();
+    
+    
+    auto keepdim=op.getKeepdim();
     mlir::SmallVector<int64_t> newShape;
     if (llvm::isa<mlir::IntegerAttr>(op.getDimAttr())) {
       auto dimAttr = llvm::dyn_cast<mlir::IntegerAttr>(op.getDimAttr());
@@ -354,8 +373,8 @@ class EntrOpLowering : public mlir::OpRewritePattern<inductor::EntrOp> {
     return mlir::success();
 }
 };
-class BroadcastTensorsOpLowering
-    : public mlir::OpRewritePattern<inductor::BroadcastTensorsOp> {
+
+class BroadcastTensorsOpLowering: public mlir::OpRewritePattern<inductor::BroadcastTensorsOp> {
       
       using OpRewritePattern<inductor::BroadcastTensorsOp>::OpRewritePattern;
   mlir::LogicalResult
@@ -530,13 +549,14 @@ void InductorToTosaLowerPass::runOnOperation() {
   patterns.add<EntrOpLowering>(&getContext());
   patterns.add<TileOpLowering>(&getContext());
   patterns.add<ReshapeOpLowering>(&getContext());
+  patterns.add<SubOpLowering>(&getContext());
 
-  if (mlir::failed(mlir::applyPartialConversion(getOperation(), target,
-                                                std::move(patterns)))) {
-    signalPassFailure();
-  }
+
+  if (mlir::failed(mlir::applyPartialConversion(getOperation(), target,std::move(patterns)))) {
+      signalPassFailure();
+    }
 }
 
 std::unique_ptr<mlir::Pass> inductor::createLowerToTosaPass() {
-  return std::make_unique<InductorToTosaLowerPass>();
-}
+    return std::make_unique<InductorToTosaLowerPass>();
+  }
