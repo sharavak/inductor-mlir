@@ -1,8 +1,4 @@
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Pass/PassRegistry.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/Visitors.h"
@@ -17,7 +13,6 @@
 
 
 namespace inductor {
-  
   #define GEN_PASS_DEF_BROADCASTPASS // from Pasess.h.inc
   #include "Inductor/Passes.h.inc"  
 } 
@@ -26,58 +21,50 @@ using namespace mlir;
 
 namespace {
 
-  mlir::Value getTileOp(ArrayRef<int64_t>finalShape,ArrayRef<int64_t>inputShape,Value input,Location loc,PatternRewriter &rewriter){
-    SmallVector<int64_t>tileOutputShape;
-    for (int64_t i = 0; i < finalShape.size(); i++) {
+  mlir::Value tileInput(ArrayRef<int64_t>tileShape, Value input, Location loc,PatternRewriter &rewriter){
+    SmallVector<int64_t>multiples;
+    auto inputShape=llvm::dyn_cast<mlir::RankedTensorType>(input.getType()).getShape();
+    for (int64_t i = 0; i < tileShape.size(); i++) {
       if (inputShape[i] == 1)
-        tileOutputShape.push_back(finalShape[i]);
+        multiples.push_back(tileShape[i]);
       else
-        tileOutputShape.push_back(1);
+        multiples.push_back(1);
     }
     auto tileInputType = llvm::dyn_cast<RankedTensorType>(input.getType());
-    auto tileOutputType = RankedTensorType::get(ArrayRef<int64_t>(finalShape), tileInputType.getElementType());
-    return rewriter.create<inductor::TileOp>(loc,tileOutputType,input,tileOutputShape);
+    auto tileOutputType = RankedTensorType::get(ArrayRef<int64_t>(tileShape), tileInputType.getElementType());
+    return rewriter.create<inductor::TileOp>(loc,tileOutputType,input,multiples);
   }
 
-  LogicalResult computeTile(PatternRewriter &rewriter, Location loc, Value &input1, Value &input2){
+  LogicalResult insertTileOp(PatternRewriter &rewriter, Location loc, Value &input1, Value &input2){
     auto input1Type = llvm::dyn_cast<RankedTensorType>(input1.getType());
     auto input2Type = llvm::dyn_cast<RankedTensorType>(input2.getType());
 
     auto input1Shape=input1Type.getShape();
     auto input2Shape=input2Type.getShape();
-    int64_t input1Rank = input1Type.getRank();
-    int64_t input2Rank = input2Type.getRank();
 
     SmallVector<int64_t>finalShape;
-    for(int64_t i=0;i<input1Rank;i++)
+    for(int64_t i=0;i<input1Type.getRank();i++)
         finalShape.push_back(std::max(input1Type.getShape()[i],input2Type.getShape()[i]));
-    
-    Value tpInp1=input1;
-    Value tpInp2=input2;
-    if(llvm::equal(finalShape,input1Shape) && llvm::equal(finalShape,input2Shape))
+    if(llvm::equal(input2Shape,input1Shape))
       return success();
     
     else if(!llvm::equal(finalShape,input1Shape) && !llvm::equal(finalShape,input2Shape)){
-      tpInp1 =getTileOp(finalShape,input1Shape,tpInp1,loc,rewriter);
-      tpInp2= getTileOp(finalShape,input2Shape,tpInp2,loc,rewriter);
-      input1=tpInp1;
-      input2=tpInp2;
+      input1 =tileInput(finalShape,input1,loc,rewriter);
+      input2= tileInput(finalShape,input2,loc,rewriter);
       return success();
     }
     else if(llvm::equal(input1Shape,finalShape)){
-      tpInp2=getTileOp(finalShape,input2Shape,tpInp2,loc,rewriter); 
-      input2=tpInp2;
+      input2=tileInput(finalShape,input2,loc,rewriter); 
     }
     else if(llvm::equal(input2Shape,finalShape)){
-      tpInp1=getTileOp(finalShape,input1Shape,tpInp1,loc,rewriter);
-      input1=tpInp1;
+      input1=tileInput(finalShape,input1,loc,rewriter);
     }
    
     return success();
   }
 
 
-  LogicalResult computeReshape(PatternRewriter &rewriter, Location loc, Value &input1, Value &input2){
+  LogicalResult insertReshapeOp(PatternRewriter &rewriter, Location loc, Value &input1, Value &input2){
     // input1 and input2 -> from the User level
     auto input1Type = llvm::dyn_cast<RankedTensorType>(input1.getType());
     auto input2Type = llvm::dyn_cast<RankedTensorType>(input2.getType());
@@ -85,20 +72,20 @@ namespace {
     int64_t input1Rank = input1Type.getRank();
     int64_t input2Rank = input2Type.getRank();
     
-   
-  
     Value highTensorVal, lowTensorVal;
+    ArrayRef<int64_t> higherRankShape,lowerRankShape;
+
     if (input1Rank > input2Rank) {
         highTensorVal = input1;
         lowTensorVal = input2;
+        higherRankShape = input1Type.getShape();
+        lowerRankShape = input2Type.getShape();
     } else {
         highTensorVal = input2;
         lowTensorVal = input1;
-      } 
-    ArrayRef<int64_t> higherRankShape =
-      llvm::cast<RankedTensorType>(highTensorVal.getType()).getShape();
-    ArrayRef<int64_t> lowerRankShape =
-      llvm::cast<RankedTensorType>(lowTensorVal.getType()).getShape();
+        higherRankShape = input2Type.getShape();
+        lowerRankShape = input1Type.getShape();
+    } 
     int64_t higherRank = higherRankShape.size();
     int64_t lowerRank = lowerRankShape.size();
 
@@ -127,39 +114,38 @@ namespace {
     return success();
   }
 
-  LogicalResult  getBroadcastedShape(PatternRewriter &rewriter, Location loc,RankedTensorType outputType, Value &input1,
-    Value &input2,Operation *op) {
+  
+  LogicalResult doOpBroadcasting (PatternRewriter &rewriter, Location loc,Operation *op) {
+      auto input1=op->getOperand(0);
+      auto input2=op->getOperand(1);
+      auto output=op->getResult(0);
+
       auto input1Type = dyn_cast<RankedTensorType>(input1.getType());
       auto input2Type = dyn_cast<RankedTensorType>(input2.getType());
       int64_t input1Rank = input1Type.getRank();
       int64_t input2Rank = input2Type.getRank();
       
-      Value Tempinput1 = input1;
-      Value Tempinput2 = input2;
-
-      // If the both the dim are same then tileOp is used no need of reshape
       if(input1Rank==input2Rank){
-
-        // eg -> [1,2], [2,1] 
-        if(computeTile(rewriter, loc, Tempinput1, Tempinput2).failed()){
+        if(insertTileOp(rewriter, loc, input1, input2).failed()){
           return failure();
         }
-        input1=Tempinput1;
-        input2=Tempinput2;
-        return success();
+        if(llvm::isa<inductor::AddOp>(op))
+          rewriter.replaceOpWithNewOp<inductor::AddOp>(op,output.getType(),input1,input2); 
+        else if(llvm::isa<inductor::SubOp>(op))
+          rewriter.replaceOpWithNewOp<inductor::SubOp>(op,output.getType(),input1,input2);   
+        return success();     
       }
-      if (llvm::equal(input1Type.getShape(),input2Type.getShape())) 
-        return rewriter.notifyMatchFailure(loc, "Both inputs rank are same");
-    
-     
-      if(computeReshape(rewriter, loc, Tempinput1, Tempinput2).failed()){
+      if(insertReshapeOp(rewriter, loc, input1, input2).failed()){
         return failure();
       }
-      if(computeTile(rewriter, loc, Tempinput1, Tempinput2).failed()){
+      if(insertTileOp(rewriter, loc, input1, input2).failed()){
         return failure();
       }     
-      input1=Tempinput1;
-      input2=Tempinput2;
+
+      if(llvm::isa<inductor::AddOp>(op))
+        rewriter.replaceOpWithNewOp<inductor::AddOp>(op,output.getType(),input1,input2); 
+      else if(llvm::isa<inductor::SubOp>(op))
+        rewriter.replaceOpWithNewOp<inductor::SubOp>(op,output.getType(),input1,input2);
       return success();
     }
 }
@@ -177,18 +163,11 @@ namespace{
           }
           if (op->hasTrait<inductor::InductorBroadcastTrait>()) {
             Location loc=op->getLoc();
-    
             PatternRewriter rewriter(op->getContext());
-            rewriter.setInsertionPoint(op); //Sets the insertion point to the specified operation, which will cause subsequent insertions to go right before it.
-            auto output=op->getResult(0);
-            auto outputType = llvm::dyn_cast<mlir::RankedTensorType>(output.getType());
-            auto input1=op->getOperand(0);
-            auto input2=op->getOperand(1);
-            
-            if(getBroadcastedShape(rewriter, loc, outputType,input1, input2,op).failed()){
+            rewriter.setInsertionPoint(op); //Sets the insertion point to the specified operation, which will cause subsequent insertions to go right before it.  
+            if(doOpBroadcasting(rewriter, loc, op).failed()){
               return WalkResult::interrupt();
             }
-            rewriter.replaceOpWithNewOp<inductor::AddOp>(op,output.getType(),input1,input2);      
           }
           return WalkResult::advance();
         });

@@ -31,17 +31,17 @@ int main(int argc, char **argv) {
     mlir::tosa::registerTosaOptPasses();
     context.getOrLoadDialect<inductor::InductorDialect>();
     context.getOrLoadDialect<mlir::func::FuncDialect>();
-    mlir::PassPipelineRegistration<> pass1(
+    mlir::PassPipelineRegistration<> AnalyseBroadcastPass(
       "analyse-broadcast-pass", "Run analyze pass for the broadcast for the supported ops",
       [](mlir::OpPassManager &pm) {
           pm.addPass(inductor::createInductorAnalyseBroadcastPass());
       });
-      mlir::PassPipelineRegistration<> pass2(
+      mlir::PassPipelineRegistration<> BroadcastPass(
         "broadcast-pass", "This pass will insert the necessary reshape and tile for the broadcasing",
         [](mlir::OpPassManager &pm) {
           pm.addPass(inductor::createInductorMakeBroadcastablePass());
         });  
-        mlir::PassPipelineRegistration<> pass3(
+        mlir::PassPipelineRegistration<> InductorToTOSA(
           "inductor-to-tosa", "lowering inductor to tosa",
           [](mlir::OpPassManager &pm) {
             pm.addPass(inductor::createLowerToTosaPass());

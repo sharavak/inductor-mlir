@@ -2,8 +2,7 @@
 #define LIB_TRANSFORM_BROADCAST_PASSES_TD_
 
 include "mlir/Pass/PassBase.td"
-//"mlir::func::FuncOp"
-def AnalyseBroadcastPass : Pass<"inductor-analyse-broadcastable"> {
+  def AnalyseBroadcastPass : Pass<"inductor-analyse-broadcastable"> {
   let summary = "Analyses the op for broadcastabality trait check";
   let description = [{
    This pass is used for the analyzes purpose. It analyses whether the Op has the broadcast Trait and then it prints the op information

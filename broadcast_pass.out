@@ -1,25 +1,43 @@
 module {
-  func.func @test_sequential_ops(%arg0: tensor<3x3xf32>, %arg1: tensor<1xf32>, %arg2: tensor<1x3xf32>, %arg3: tensor<3x1xf32>, %arg4: tensor<3xf32>, %arg5: tensor<1x5x2xf32>, %arg6: tensor<4x5x1xf32>, %arg7: tensor<4x1x3xf32>) -> tensor<4x5x3xf32> {
-    %0 = inductor.reshape %arg1 {shapes = array<i64: 1, 1>} : (tensor<1xf32>) -> tensor<1x1xf32>
-    %1 = inductor.tile %0 {shapes = array<i64: 3, 3>} : (tensor<1x1xf32>) -> tensor<3x3xf32>
-    %2 = inductor.add %arg0, %1 : (tensor<3x3xf32>, tensor<3x3xf32>) -> tensor<3x3xf32>
-    %3 = inductor.tile %arg2 {shapes = array<i64: 3, 1>} : (tensor<1x3xf32>) -> tensor<3x3xf32>
-    %4 = inductor.tile %arg3 {shapes = array<i64: 1, 3>} : (tensor<3x1xf32>) -> tensor<3x3xf32>
-    %5 = inductor.add %3, %4 : (tensor<3x3xf32>, tensor<3x3xf32>) -> tensor<3x3xf32>
-    %6 = inductor.reshape %arg4 {shapes = array<i64: 1, 3>} : (tensor<3xf32>) -> tensor<1x3xf32>
-    %7 = inductor.tile %6 {shapes = array<i64: 3, 1>} : (tensor<1x3xf32>) -> tensor<3x3xf32>
-    %8 = inductor.add %5, %7 : (tensor<3x3xf32>, tensor<3x3xf32>) -> tensor<3x3xf32>
-    %9 = inductor.tile %arg5 {shapes = array<i64: 4, 1, 1>} : (tensor<1x5x2xf32>) -> tensor<4x5x2xf32>
-    %10 = inductor.tile %arg6 {shapes = array<i64: 1, 1, 2>} : (tensor<4x5x1xf32>) -> tensor<4x5x2xf32>
-    %11 = inductor.add %9, %10 : (tensor<4x5x2xf32>, tensor<4x5x2xf32>) -> tensor<4x5x2xf32>
-    %12 = inductor.tile %arg6 {shapes = array<i64: 1, 1, 3>} : (tensor<4x5x1xf32>) -> tensor<4x5x3xf32>
-    %13 = inductor.tile %arg7 {shapes = array<i64: 1, 5, 1>} : (tensor<4x1x3xf32>) -> tensor<4x5x3xf32>
-    %14 = inductor.add %12, %13 : (tensor<4x5x3xf32>, tensor<4x5x3xf32>) -> tensor<4x5x3xf32>
-    %15 = inductor.entr %14 : (tensor<4x5x3xf32>) -> tensor<4x5x3xf32>
-    %16 = inductor.tile %arg7 {shapes = array<i64: 1, 5, 1>} : (tensor<4x1x3xf32>) -> tensor<4x5x3xf32>
-    %17 = inductor.add %15, %16 : (tensor<4x5x3xf32>, tensor<4x5x3xf32>) -> tensor<4x5x3xf32>
-    %18 = inductor.add %17, %17 : (tensor<4x5x3xf32>, tensor<4x5x3xf32>) -> tensor<4x5x3xf32>
-    return %18 : tensor<4x5x3xf32>
+  func.func @test_sequential_ops(%arg0: tensor<2xf32>, %arg1: tensor<3x4x2xf32>, %arg2: tensor<3x4x1xf32>) -> tensor<3x4x2xf32> {
+    %0 = inductor.reshape %arg0 {shapes = array<i64: 1, 1, 2>} : (tensor<2xf32>) -> tensor<1x1x2xf32>
+    %1 = inductor.tile %0 {shapes = array<i64: 3, 4, 1>} : (tensor<1x1x2xf32>) -> tensor<3x4x2xf32>
+    %2 = inductor.add %1, %arg1 : (tensor<3x4x2xf32>, tensor<3x4x2xf32>) -> tensor<3x4x2xf32>
+    %3 = inductor.tile %arg2 {shapes = array<i64: 1, 1, 2>} : (tensor<3x4x1xf32>) -> tensor<3x4x2xf32>
+    %4 = inductor.sub %2, %3 : (tensor<3x4x2xf32>, tensor<3x4x2xf32>) -> tensor<3x4x2xf32>
+    %5 = inductor.entr %4 : (tensor<3x4x2xf32>) -> tensor<3x4x2xf32>
+    return %5 : tensor<3x4x2xf32>
+  }
+  func.func @test_invalid_broadcast_pass(%arg0: tensor<2x5x3xf32>) -> tensor<2x5x3xf32> {
+    %0 = inductor.entr %arg0 : (tensor<2x5x3xf32>) -> tensor<2x5x3xf32>
+    return %0 : tensor<2x5x3xf32>
+  }
+  func.func @test_valid_broadcasted_form(%arg0: tensor<2x2xf32>, %arg1: tensor<2x2xf32>) -> tensor<2x2xf32> {
+    %0 = inductor.add %arg0, %arg1 : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
+    return %0 : tensor<2x2xf32>
+  }
+  func.func @test_valid_broadcasted_pass_with_reshape_tile(%arg0: tensor<5x1xf32>, %arg1: tensor<6xf32>) -> tensor<5x6xf32> {
+    %0 = inductor.reshape %arg1 {shapes = array<i64: 1, 6>} : (tensor<6xf32>) -> tensor<1x6xf32>
+    %1 = inductor.tile %arg0 {shapes = array<i64: 1, 6>} : (tensor<5x1xf32>) -> tensor<5x6xf32>
+    %2 = inductor.tile %0 {shapes = array<i64: 5, 1>} : (tensor<1x6xf32>) -> tensor<5x6xf32>
+    %3 = inductor.sub %1, %2 : (tensor<5x6xf32>, tensor<5x6xf32>) -> tensor<5x6xf32>
+    return %3 : tensor<5x6xf32>
+  }
+  func.func @test_valid_broadcasted_pass_with_tile(%arg0: tensor<2x1xf32>, %arg1: tensor<1x2xf32>) -> tensor<2x2xf32> {
+    %0 = inductor.tile %arg0 {shapes = array<i64: 1, 2>} : (tensor<2x1xf32>) -> tensor<2x2xf32>
+    %1 = inductor.tile %arg1 {shapes = array<i64: 2, 1>} : (tensor<1x2xf32>) -> tensor<2x2xf32>
+    %2 = inductor.add %0, %1 : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
+    return %2 : tensor<2x2xf32>
+  }
+  func.func @test_valid_broadcasted_pass_with_tile_input2(%arg0: tensor<5x6xf32>, %arg1: tensor<1x6xf32>) -> tensor<5x6xf32> {
+    %0 = inductor.tile %arg1 {shapes = array<i64: 5, 1>} : (tensor<1x6xf32>) -> tensor<5x6xf32>
+    %1 = inductor.add %arg0, %0 : (tensor<5x6xf32>, tensor<5x6xf32>) -> tensor<5x6xf32>
+    return %1 : tensor<5x6xf32>
+  }
+  func.func @test_valid_broadcasted_pass_with_tile_input1(%arg0: tensor<1x6xf32>, %arg1: tensor<5x6xf32>) -> tensor<5x6xf32> {
+    %0 = inductor.tile %arg0 {shapes = array<i64: 5, 1>} : (tensor<1x6xf32>) -> tensor<5x6xf32>
+    %1 = inductor.add %0, %arg1 : (tensor<5x6xf32>, tensor<5x6xf32>) -> tensor<5x6xf32>
+    return %1 : tensor<5x6xf32>
   }
 }
 

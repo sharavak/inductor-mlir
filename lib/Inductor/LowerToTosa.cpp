@@ -52,7 +52,7 @@ class SubOpLowering : public mlir::OpRewritePattern<inductor::SubOp> {
   mlir::LogicalResult
   matchAndRewrite(inductor::SubOp op, mlir::PatternRewriter &rewriter) const override {
     mlir::Type resultType = op.getResult().getType();
-    rewriter.replaceOpWithNewOp<mlir::tosa::SubOp>(op, resultType, op.getLhs(),op.getRhs());
+    rewriter.replaceOpWithNewOp<mlir::tosa::SubOp>(op, resultType, op.getOperands());
     return mlir::success();
   }
 };
