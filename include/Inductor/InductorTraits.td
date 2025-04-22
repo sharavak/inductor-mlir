@@ -8,6 +8,5 @@ include "mlir/Interfaces/InferTypeOpInterface.td"
 
 def InductorBroadcastTrait : NativeOpTrait<"InductorBroadcastTrait"> {
   let cppNamespace = "::inductor";
-  
 }
 

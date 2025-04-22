@@ -21,11 +21,27 @@ cmake --build . --target inductor-opt
 
 To run the test, `check-inductor` target will be usable.
 
+```sh
+cmake --build . --target check-inductor
+```
+
 To build the documentation from the TableGen description of the dialect operations, run
 ```sh
 cmake --build . --target mlir-doc
 ```
 
+# 'inductor' Dialect
+Inductor dialect
+
+The inductor dialect is a custom MLIR dialect designed to support high-level tensor operations with custom broadcastTrait and broadcast Transorfmation pass.Currently supported Ops are
+* add
+* sub
+* entrophy
+* batchnorm2d
+* reduce_prod
+* tile
+* reshape
+* broadcast_tensors
 
 ## Operations
 
@@ -41,24 +57,24 @@ Syntax:
 operation ::= `inductor.add` operands attr-dict `:` functional-type(operands, results)
 ```
 
-Adds two operands, which can be either scalars or tensors of the same type.
+Elementwise addition of input1 and input2 of the tensor type
 
-Traits: `SameOperandsAndResultShape`
+Traits: `InductorBroadcastTrait`
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-| `a` | tensor of any type values or floating-point or integer
-| `b` | tensor of any type values or floating-point or integer
+| `lhs` | tensor of any type values
+| `rhs` | tensor of any type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `result` | tensor of any type values or floating-point or integer
+| `result` | tensor of any type values
 
-### `inductor.batchnorm2d` (::inductor::BatchNorm2D)
+### `inductor.batchnorm2d` (::inductor::BatchNorm2dOp)
 
 _Batch Normalization2d_
 
@@ -71,8 +87,6 @@ operation ::= `inductor.batchnorm2d` operands attr-dict `:` functional-type(oper
 
 Performs batch normalization over a 4D input tensor (N, C, H, W).
 Normalization is applied across (N, H, W) for each channel.
-
-Traits: `SameOperandsAndResultShape`
 
 #### Attributes:
 
@@ -95,3 +109,274 @@ Traits: `SameOperandsAndResultShape`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of any type values
+
+### `inductor.broadcast_tensors` (::inductor::BroadcastTensorsOp)
+
+_Broadcast_tensorsOp_
+
+
+Syntax:
+
+```
+operation ::= `inductor.broadcast_tensors` operands attr-dict `:` functional-type(operands, results)
+```
+
+"It takes multiple inputs and broadcasts them according to broadcasting rules, making the tensors compatible for element-wise operations."
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `inputs` | variadic of tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `outputs` | variadic of tensor of any type values
+
+### `inductor.entr` (::inductor::EntrOp)
+
+_Entr_
+
+
+Syntax:
+
+```
+operation ::= `inductor.entr` operands attr-dict `:` functional-type(operands, results)
+```
+
+Computes the entropy on input elementwise.
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of any type values
+
+### `inductor.prod` (::inductor::ProdOp)
+
+_Prod_
+
+
+Syntax:
+
+```
+operation ::= `inductor.prod` operands attr-dict `:` functional-type(operands, results)
+```
+
+Returns the product of each row of the input tensor in the given dimension dim.
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>dim</code></td><td>::mlir::Attribute</td><td>64-bit integer attribute or i64 dense array attribute</td></tr>
+<tr><td><code>keepdim</code></td><td>::mlir::BoolAttr</td><td>bool attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of any type values
+
+### `inductor.reshape` (::inductor::ReshapeOp)
+
+_Reshape_
+
+
+Syntax:
+
+```
+operation ::= `inductor.reshape` operands attr-dict `:` functional-type(operands, results)
+```
+
+Computes the reshape on the input
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>shapes</code></td><td>::mlir::DenseI64ArrayAttr</td><td>i64 dense array attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of any type values
+
+### `inductor.sub` (::inductor::SubOp)
+
+_It takes two input operands as tensor types of the same rank and subtract the two inputs_
+
+
+Syntax:
+
+```
+operation ::= `inductor.sub` operands attr-dict `:` functional-type(operands, results)
+```
+
+Elementwise addition of input1 and input2 of the tensor type
+
+Traits: `InductorBroadcastTrait`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `lhs` | tensor of any type values
+| `rhs` | tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `result` | tensor of any type values
+
+### `inductor.tile` (::inductor::TileOp)
+
+_Tile_
+
+
+Syntax:
+
+```
+operation ::= `inductor.tile` operands attr-dict `:` functional-type(operands, results)
+```
+
+Computes the tile on the input
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>shapes</code></td><td>::mlir::DenseI64ArrayAttr</td><td>i64 dense array attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of any type values
+
+<!-- Autogenerated by mlir-tblgen; don't manually edit -->
+
+## Traits
+
+### InductorBroadcastTrait:
+
+InductorBroadcastTrait is a custom trait in the inductor dialect that checks broadcasting support for element-wise operation.
+
+Purpose of this trait
+
+- It Handle rank mismatches.
+- The operation has at least one input operand.
+- Inputs must be broadcast-compatible.
+- Raise errors if incompatible dimensions are present.
+- Checks for the Tensor types.
+
+Currently it supports for Ranked Tensors.
+
+
+## Inductor opt
+inductor-opt tool is a command-line entry point for running passes and lowerings on inductor dialect.It is a custom tool built for the Inductor Dialact.
+
+Features:
+
+- Supports custom pass pipelines
+- Verbose diagnostics for transformations
+
+To execute this tool and get help
+``` 
+  ./build/bin/inductor-opt  --help
+```
+To convert into TOSA
+```
+    ./build/bin/inductor-opt  --inductor-to-tosa /test/Inductor/add.mlir
+```
+
+## Passes
+
+
+### `-analyse-broadcast-pass`
+
+_Analyses the op for broadcastabality trait check_
+
+This pass is used for the analyzes purpose. It analyses whether the Op has the broadcast Trait and then it prints the op information
+
+_Usage_
+```sh 
+--pass-pipeline="builtin.module(analyse-broadcast-pass)"
+```
+### `-broadcast-pass`
+
+_Applies broadcast operation for all elementwise operation_
+
+* This pass is used for transformation purposes. It ensures that all elementwise operations 
+ apply broadcasting where necessary. 
+ * Automatically inserts reshape and tile operations to make tensor shapes compatible for element-wise operations that support broadcasting.
+
+ _Usage_
+```sh 
+--pass-pipeline="builtin.module(broadcast-pass)"
+``` 
+
+### `-inductor-to-tosa`
+
+_Converts inductor dialect to TOSA dialect_
+
+This pass is a conversion pass. It converts inductor dialect to TOSA dialect  
+
+ _Usage_
+```sh 
+--pass-pipeline="builtin.module(inductor-to-tosa)"
+``` 
+
+
+## Broadcast Support in Inductor Dialect
+The inductor dialect includes built-in support for broadcasting to enable operations on tensors with different but broadcast-compatible shapes
+
+### How it works
+Broadcasting is implemented using:
+
+- The custom trait InductorBroadcastTrait
+
+- A transformation pass: inductor-broadcast-pass
+
+When a broadcastable op (e.g., inductor.add) is encountered, the pass:
+
+- Inspects operand ranks and dimensions,if the shapes are broadcast compatible, then It
+
+- Inserts:
+
+    - inductor.reshape: Adds missing dimensions (e.g., 1 → 1x1)
+
+    - inductor.tile: Repeats tensor values along dimensions to match sizes
+
+- Rewrites the operation with broadcast-compatible inputs
