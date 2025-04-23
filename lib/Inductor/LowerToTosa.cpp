@@ -137,11 +137,11 @@ class BatchNorm2dOpLowering
         loc, ip, wiVarSum, rewriter.getI32IntegerAttr({3})); // variance sum
 
     auto batch_var = rewriter.create<mlir::tosa::MulOp>(
-        loc, inputType, bt_sum, divisor, constShift.getResult()); // variance
+        loc, ip, bt_sum, divisor, constShift.getResult()); // variance
 
     float eps = 1e-5;
     auto epsType =
-        mlir::RankedTensorType::get({1, 1, 1, 1}, rewriter.getF32Type());
+        mlir::RankedTensorType::get(inputShape, rewriter.getF32Type());
     auto epsAttr = mlir::DenseElementsAttr::get(
         epsType, rewriter.getFloatAttr(rewriter.getF32Type(), eps));
     auto epsinter =

@@ -14,9 +14,9 @@ func.func @batchnorm_test_with_affine(%arg0: tensor<2x3x2x2xf32>) -> tensor<2x3x
     //CHECK-NEXT:    %7 = tosa.reduce_sum %6 {axis = 0 : i32} : (tensor<2x3x2x2xf32>) -> tensor<1x3x2x2xf32>
     //CHECK-NEXT:    %8 = tosa.reduce_sum %7 {axis = 2 : i32} : (tensor<1x3x2x2xf32>) -> tensor<1x3x1x2xf32>
     //CHECK-NEXT:    %9 = tosa.reduce_sum %8 {axis = 3 : i32} : (tensor<1x3x1x2xf32>) -> tensor<1x3x1x1xf32>
-    //CHECK-NEXT:    %10 = tosa.mul %9, %3, %4 : (tensor<1x3x1x1xf32>, tensor<1x3x1x1xf32>, tensor<1xi8>) -> tensor<2x3x2x2xf32>
-    //CHECK-NEXT:    %11 = "tosa.const"() <{value = dense<9.99999974E-6> : tensor<1x1x1x1xf32>}> : () -> tensor<1x1x1x1xf32>
-    //CHECK-NEXT:    %12 = tosa.add %10, %11 : (tensor<2x3x2x2xf32>, tensor<1x1x1x1xf32>) -> tensor<2x3x2x2xf32>
+    //CHECK-NEXT:    %10 = tosa.mul %9, %3, %4 : (tensor<1x3x1x1xf32>, tensor<1x3x1x1xf32>, tensor<1xi8>) -> tensor<1x3x1x1xf32>
+    //CHECK-NEXT:    %11 = "tosa.const"() <{value = dense<9.99999974E-6> : tensor<2x3x2x2xf32>}> : () -> tensor<2x3x2x2xf32>
+    //CHECK-NEXT:    %12 = tosa.add %10, %11 : (tensor<1x3x1x1xf32>, tensor<2x3x2x2xf32>) -> tensor<2x3x2x2xf32>
     //CHECK-NEXT:    %13 = tosa.rsqrt %12 : (tensor<2x3x2x2xf32>) -> tensor<2x3x2x2xf32>
     //CHECK-NEXT:    %14 = tosa.mul %9, %13, %4 : (tensor<1x3x1x1xf32>, tensor<2x3x2x2xf32>, tensor<1xi8>) -> tensor<2x3x2x2xf32>
     //CHECK-NEXT:    %15 = "tosa.const"() <{value = dense<1.000000e+00> : tensor<1x3x1x1xf32>}> : () -> tensor<1x3x1x1xf32>
@@ -40,9 +40,9 @@ func.func @batchnorm_test_without_affine(%arg0: tensor<2x3x2x2xf32>) -> tensor<2
     //CHECK-NEXT:    %7 = tosa.reduce_sum %6 {axis = 0 : i32} : (tensor<2x3x2x2xf32>) -> tensor<1x3x2x2xf32>
     //CHECK-NEXT:    %8 = tosa.reduce_sum %7 {axis = 2 : i32} : (tensor<1x3x2x2xf32>) -> tensor<1x3x1x2xf32>
     //CHECK-NEXT:    %9 = tosa.reduce_sum %8 {axis = 3 : i32} : (tensor<1x3x1x2xf32>) -> tensor<1x3x1x1xf32>
-    //CHECK-NEXT:    %10 = tosa.mul %9, %3, %4 : (tensor<1x3x1x1xf32>, tensor<1x3x1x1xf32>, tensor<1xi8>) -> tensor<2x3x2x2xf32>
-    //CHECK-NEXT:    %11 = "tosa.const"() <{value = dense<9.99999974E-6> : tensor<1x1x1x1xf32>}> : () -> tensor<1x1x1x1xf32>
-    //CHECK-NEXT:    %12 = tosa.add %10, %11 : (tensor<2x3x2x2xf32>, tensor<1x1x1x1xf32>) -> tensor<2x3x2x2xf32>
+    //CHECK-NEXT:    %10 = tosa.mul %9, %3, %4 : (tensor<1x3x1x1xf32>, tensor<1x3x1x1xf32>, tensor<1xi8>) -> tensor<1x3x1x1xf32>
+    //CHECK-NEXT:    %11 = "tosa.const"() <{value = dense<9.99999974E-6> : tensor<2x3x2x2xf32>}> : () -> tensor<2x3x2x2xf32>
+    //CHECK-NEXT:    %12 = tosa.add %10, %11 : (tensor<1x3x1x1xf32>, tensor<2x3x2x2xf32>) -> tensor<2x3x2x2xf32>
     //CHECK-NEXT:    %13 = tosa.rsqrt %12 : (tensor<2x3x2x2xf32>) -> tensor<2x3x2x2xf32>
     //CHECK-NEXT:    %14 = tosa.mul %9, %13, %4 : (tensor<1x3x1x1xf32>, tensor<2x3x2x2xf32>, tensor<1xi8>) -> tensor<2x3x2x2xf32>
     //CHECK-NEXT:    return %14 : tensor<2x3x2x2xf32>
