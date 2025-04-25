@@ -31,14 +31,22 @@
 
 
 
-void tosaToLLVM(mlir::OpPassManager &manager){
+void inductorToTosa(mlir::OpPassManager &manager){
+  manager.addPass(inductor::createInductorAnalyseBroadcastPass());
+  manager.addPass(inductor::createInductorMakeBroadcastablePass());
+  manager.addPass(inductor::createLowerToTosaPass());
+}
+void inductorToLLVM(mlir::OpPassManager &manager){
+  manager.addPass(inductor::createInductorMakeBroadcastablePass());
+  manager.addPass(inductor::createLowerToTosaPass());
+
   manager.nest<mlir::func::FuncOp>().addPass(mlir::tosa::createTosaToLinalg());
   manager.nest<mlir::func::FuncOp>().addPass(mlir::tosa::createTosaToLinalgNamed());
-  manager.nest<mlir::func::FuncOp>().addPass(mlir::tosa::createTosaToArith());
-  manager.nest<mlir::func::FuncOp>().addPass(mlir::tosa::createTosaToTensor());
+  manager.addPass(mlir::tosa::createTosaToArith());
+  manager.addPass(mlir::tosa::createTosaToTensor());
 
-  manager.nest<mlir::func::FuncOp>().addPass(mlir::createConvertElementwiseToLinalgPass());
-  manager.nest<mlir::func::FuncOp>().addPass(mlir::createConvertTensorToLinalgPass());
+  manager.addPass(mlir::createConvertElementwiseToLinalgPass());
+  manager.addPass(mlir::createConvertTensorToLinalgPass());
 
   mlir::bufferization::OneShotBufferizationOptions bufferizationOptions;
   bufferizationOptions.bufferizeFunctionBoundaries = true;
@@ -72,23 +80,19 @@ int main(int argc, char **argv) {
     context.getOrLoadDialect<inductor::InductorDialect>();
     context.getOrLoadDialect<mlir::func::FuncDialect>();
 
-    mlir::PassPipelineRegistration<> AnalyseBroadcastPass(
-      "analyse-broadcast-pass", "Run analyze pass for the broadcast for the supported ops",
-      [](mlir::OpPassManager &pm) {
-          pm.addPass(inductor::createInductorAnalyseBroadcastPass());
-      });
+
     mlir::PassPipelineRegistration<> BroadcastPass(
-        "broadcast-pass", "This pass will insert the necessary reshape and tile for the broadcasing",
-        [](mlir::OpPassManager &pm) {
-          pm.addPass(inductor::createInductorMakeBroadcastablePass());
-        });  
-    mlir::PassPipelineRegistration<> InductorToTOSA(
-          "inductor-to-tosa", "lowering inductor to tosa",
-          [](mlir::OpPassManager &pm) {
-            pm.addPass(inductor::createLowerToTosaPass());
-          });
+      "broadcast-pass", "This pass will insert the necessary reshape and tile for the broadcasing",
+      [](mlir::OpPassManager &pm) {
+        pm.addPass(inductor::createInductorMakeBroadcastablePass());
+      });  
+    
     mlir::PassPipelineRegistration<>(
-          "tosa-to-llvm","lowering tosa to LLVM",tosaToLLVM); 
+          "inductor-to-tosa","lowering inductor to tosa",inductorToTosa
+    );
+    mlir::PassPipelineRegistration<>(
+          "inductor-to-llvm","lowering tosa to LLVM",inductorToLLVM);
+    
     return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Tutorial Pass Driver", registry));
     return 0;
