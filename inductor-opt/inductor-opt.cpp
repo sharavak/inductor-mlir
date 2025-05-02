@@ -32,7 +32,6 @@
 
 
 void inductorToTosa(mlir::OpPassManager &manager){
-  manager.addPass(inductor::createInductorAnalyseBroadcastPass());
   manager.addPass(inductor::createInductorMakeBroadcastablePass());
   manager.addPass(inductor::createLowerToTosaPass());
 }
@@ -59,12 +58,14 @@ void inductorToLLVM(mlir::OpPassManager &manager){
 
   manager.addPass(mlir::createConvertLinalgToLoopsPass());
   manager.addPass(mlir::memref::createExpandStridedMetadataPass());
+  manager.addPass(mlir::createLowerAffinePass());
   manager.addPass(mlir::createConvertSCFToCFPass());
   manager.addPass(mlir::createConvertControlFlowToLLVMPass());
   manager.addPass(mlir::createArithToLLVMConversionPass());
   manager.addPass(mlir::createConvertFuncToLLVMPass());
   manager.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
   manager.addPass(mlir::createReconcileUnrealizedCastsPass());
+  manager.addPass(mlir::createCSEPass());
 
 }
 
@@ -91,7 +92,7 @@ int main(int argc, char **argv) {
           "inductor-to-tosa","lowering inductor to tosa",inductorToTosa
     );
     mlir::PassPipelineRegistration<>(
-          "inductor-to-llvm","lowering tosa to LLVM",inductorToLLVM);
+          "inductor-to-llvm","lowering inductor to LLVM",inductorToLLVM);
     
     return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Tutorial Pass Driver", registry));

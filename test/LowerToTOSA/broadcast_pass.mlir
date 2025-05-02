@@ -43,10 +43,6 @@ func.func @test_valid_broadcasted_pass_with_reshape_tile(%a: tensor<5x1xf32>,%b:
     //CHECK-NEXT: return %3 : tensor<5x6xf32>
 }
 
-func.func @broadcasted_pass(%a: tensor<5x1xf32>,%b:tensor<6xf32>) -> tensor<5x6xf32> {
-    %0 = inductor.add %a, %b:(tensor<5x1xf32>,tensor<6xf32>) -> tensor<5x6xf32>
-    return %0 : tensor<5x6xf32>
-}
 
 // CHECK-LABEL: test_valid_broadcasted_pass_with_tile
 func.func @test_valid_broadcasted_pass_with_tile(%a: tensor<2x1xf32>,%b:tensor<1x2xf32>) -> tensor<2x2xf32> {
